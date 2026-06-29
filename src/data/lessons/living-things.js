@@ -20,6 +20,12 @@ const livingThingsLesson = {
     {
       id: "intro",
       heading: "Welcome",
+      visual: {
+        type: "banner",
+        icon: "🌍",
+        label: "Living Things",
+        subtitle: "JSS 1 Basic Science",
+      },
       sentences: [
         "Hello students, and welcome to today's Basic Science lesson.",
         "Today we will learn about living things.",
@@ -35,6 +41,18 @@ const livingThingsLesson = {
     {
       id: "definition",
       heading: "Definition of Living Things",
+      visual: {
+        type: "icon-grid",
+        columns: 3,
+        items: [
+          { emoji: "🧑", label: "Humans" },
+          { emoji: "🐕", label: "Dogs" },
+          { emoji: "🐦", label: "Birds" },
+          { emoji: "🌳", label: "Trees" },
+          { emoji: "🐟", label: "Fish" },
+          { emoji: "🦋", label: "Insects" },
+        ],
+      },
       sentences: [
         "Living things are organisms that have life.",
         "They carry out life processes such as feeding, breathing, growing, reproducing, moving, responding to changes in their environment, and removing waste products.",
@@ -44,6 +62,18 @@ const livingThingsLesson = {
     {
       id: "non-living",
       heading: "Non-Living Things",
+      visual: {
+        type: "icon-grid",
+        columns: 3,
+        items: [
+          { emoji: "🪨", label: "Stone" },
+          { emoji: "🪑", label: "Chair" },
+          { emoji: "📚", label: "Books" },
+          { emoji: "🚗", label: "Car" },
+          { emoji: "🍾", label: "Bottle" },
+          { emoji: "✏️", label: "Pencil" },
+        ],
+      },
       sentences: [
         "Non-living things are objects that do not have life.",
         "They do not perform the life processes.",
@@ -55,6 +85,19 @@ const livingThingsLesson = {
     {
       id: "mrs-gren",
       heading: "Characteristics: MRS GREN",
+      visual: {
+        type: "acronym",
+        word: "MRSGREN",
+        meanings: [
+          "Movement",
+          "Respiration",
+          "Sensitivity",
+          "Growth",
+          "Reproduction",
+          "Excretion",
+          "Nutrition",
+        ],
+      },
       sentences: [
         "Scientists often remember the characteristics of living things with the acronym MRS GREN.",
         "MRS GREN stands for Movement, Respiration, Sensitivity, Growth, Reproduction, Excretion, and Nutrition.",
@@ -64,6 +107,16 @@ const livingThingsLesson = {
     {
       id: "movement",
       heading: "Movement",
+      visual: {
+        type: "icon-grid",
+        columns: 2,
+        items: [
+          { emoji: "🐦", label: "A bird flies" },
+          { emoji: "🐟", label: "A fish swims" },
+          { emoji: "🌻", label: "Plants bend to sun" },
+          { emoji: "🏃", label: "We walk and run" },
+        ],
+      },
       sentences: [
         "First, Movement.",
         "Living things can move by themselves, or move parts of their bodies.",
@@ -73,6 +126,15 @@ const livingThingsLesson = {
     {
       id: "respiration",
       heading: "Respiration",
+      visual: {
+        type: "icon-grid",
+        columns: 3,
+        items: [
+          { emoji: "🫁", label: "Lungs (humans)" },
+          { emoji: "🐠", label: "Gills (fish)" },
+          { emoji: "🌿", label: "Stomata (plants)" },
+        ],
+      },
       sentences: [
         "Second, Respiration.",
         "Living things release energy from food through respiration.",
@@ -82,6 +144,16 @@ const livingThingsLesson = {
     {
       id: "sensitivity",
       heading: "Sensitivity",
+      visual: {
+        type: "icon-grid",
+        columns: 2,
+        items: [
+          { emoji: "🔥", label: "Pull away from heat" },
+          { emoji: "🌱", label: "Leaves fold when touched" },
+          { emoji: "👀", label: "Eyes react to light" },
+          { emoji: "👂", label: "Ears react to sound" },
+        ],
+      },
       sentences: [
         "Third, Sensitivity, also called response to stimuli.",
         "Living things respond to changes in their environment.",
@@ -92,6 +164,16 @@ const livingThingsLesson = {
     {
       id: "growth",
       heading: "Growth",
+      visual: {
+        type: "icon-grid",
+        columns: 2,
+        items: [
+          { emoji: "👶", label: "Baby" },
+          { emoji: "🧑", label: "Adult" },
+          { emoji: "🌱", label: "Seed" },
+          { emoji: "🌳", label: "Tree" },
+        ],
+      },
       sentences: [
         "Fourth, Growth.",
         "Living things increase in size and develop over time.",
@@ -101,6 +183,15 @@ const livingThingsLesson = {
     {
       id: "reproduction",
       heading: "Reproduction",
+      visual: {
+        type: "icon-grid",
+        columns: 3,
+        items: [
+          { emoji: "🥚", label: "Birds lay eggs" },
+          { emoji: "👶", label: "Mammals give birth" },
+          { emoji: "🌰", label: "Plants make seeds" },
+        ],
+      },
       sentences: [
         "Fifth, Reproduction.",
         "Living things produce young ones, or offspring, of their own kind.",
@@ -110,6 +201,14 @@ const livingThingsLesson = {
     {
       id: "excretion",
       heading: "Excretion",
+      visual: {
+        type: "icon-grid",
+        columns: 2,
+        items: [
+          { emoji: "💧", label: "Urine & sweat" },
+          { emoji: "🍃", label: "Plants release waste" },
+        ],
+      },
       sentences: [
         "Sixth, Excretion.",
         "Living things remove waste products from their bodies.",
@@ -119,6 +218,15 @@ const livingThingsLesson = {
     {
       id: "nutrition",
       heading: "Nutrition",
+      visual: {
+        type: "icon-grid",
+        columns: 3,
+        items: [
+          { emoji: "🍎", label: "Humans eat food" },
+          { emoji: "🐄", label: "Cows graze on grass" },
+          { emoji: "☀️", label: "Plants use sunlight" },
+        ],
+      },
       sentences: [
         "Finally, Nutrition.",
         "Living things need food, or nutrients, to survive and to obtain energy.",
@@ -128,6 +236,15 @@ const livingThingsLesson = {
     {
       id: "groups",
       heading: "Major Groups of Living Things",
+      visual: {
+        type: "icon-grid",
+        columns: 3,
+        items: [
+          { emoji: "🌳", label: "Plants" },
+          { emoji: "🦁", label: "Animals" },
+          { emoji: "🦠", label: "Microorganisms" },
+        ],
+      },
       sentences: [
         "Living things are classified into three major groups: plants, animals, and microorganisms.",
         "Plants make their own food using sunlight, water, and carbon dioxide. Examples are the mango tree, maize, grass, hibiscus, and palm tree.",
@@ -138,6 +255,12 @@ const livingThingsLesson = {
     {
       id: "summary",
       heading: "Summary",
+      visual: {
+        type: "banner",
+        icon: "✅",
+        label: "You learned",
+        subtitle: "Definition · Living vs Non-Living · MRS GREN · Plants, Animals, Microorganisms",
+      },
       sentences: [
         "Let us summarize today's lesson.",
         "Living things are organisms that have life and carry out life processes.",

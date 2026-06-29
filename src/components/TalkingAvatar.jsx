@@ -1,20 +1,65 @@
+import { useState } from "react";
 import mascotImg from "../assets/AI_Lesson.png";
 
-// Animated AI tutor avatar. Two visual states:
-// - idle:    gentle bounce + soft halo
-// - speaking: faster bounce, pulsing glow ring, active wave bars below
+// Realistic AI teacher avatar.
 //
-// Driven by CSS keyframes defined in src/index.css. No external libs.
+// Image resolution chain (first match wins):
+//   1. /teacher-avatar.jpg — drop ANY photo at
+//      passpoint-demo/public/teacher-avatar.jpg and it shows up here.
+//      .png, .webp also work — see TEACHER_PATHS below.
+//   2. DiceBear "personas" portrait — generated illustrated character.
+//   3. Robot mascot bundled with the app — final safety net.
 //
-// Props:
-//   speaking: boolean — true when the teleprompter is mid-sentence
-//   size: "xl" | "lg" | "md"  (default "lg")
-//   caption: optional short label rendered under the avatar
-export default function TalkingAvatar({ speaking = false, size = "lg", caption }) {
+// To swap the teacher: save your preferred photo to
+//   passpoint-demo/public/teacher-avatar.jpg
+// then refresh the page — no code changes needed.
+const TEACHER_PATHS = [
+  "/teacher-avatar.jpg",
+  "/teacher-avatar.jpeg",
+  "/teacher-avatar.png",
+  "/teacher-avatar.webp",
+];
+
+const DICEBEAR_URL = (seed) =>
+  `https://api.dicebear.com/9.x/personas/svg?seed=${encodeURIComponent(
+    seed,
+  )}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf&size=300`;
+
+const DEFAULT_SEED = "Mr+Adebayo+Teacher";
+
+export default function TalkingAvatar({
+  speaking = false,
+  size = "lg",
+  caption,
+  teacherSeed = DEFAULT_SEED,
+}) {
+  // `srcIdx` walks the TEACHER_PATHS array; once exhausted we fall through
+  // to DiceBear, and finally to the bundled robot mascot.
+  const [srcIdx, setSrcIdx] = useState(0);
+  const [usingDicebear, setUsingDicebear] = useState(false);
+  const [usingMascot, setUsingMascot] = useState(false);
+
+  function handleError() {
+    if (srcIdx < TEACHER_PATHS.length - 1) {
+      setSrcIdx(srcIdx + 1);
+    } else if (!usingDicebear) {
+      setUsingDicebear(true);
+    } else if (!usingMascot) {
+      setUsingMascot(true);
+    }
+  }
+
+  const portraitSrc = usingMascot
+    ? mascotImg
+    : usingDicebear
+      ? DICEBEAR_URL(teacherSeed)
+      : TEACHER_PATHS[srcIdx];
+
   const dim = {
     xl: "w-56 h-56",
     lg: "w-44 h-44",
     md: "w-32 h-32",
+    sm: "w-24 h-24",
   }[size];
 
   return (
@@ -32,28 +77,29 @@ export default function TalkingAvatar({ speaking = false, size = "lg", caption }
         {/* Inner halo */}
         <div
           className={[
-            "absolute inset-4 rounded-full bg-gradient-to-br",
+            "absolute inset-2 rounded-full bg-gradient-to-br",
             speaking
               ? "from-blue-200 to-orange-200"
               : "from-blue-100 to-orange-100",
           ].join(" ")}
         />
-        {/* The mascot itself — bobs subtly to feel alive */}
+        {/* Teacher portrait — bobs subtly to feel alive */}
         <img
-          src={mascotImg}
-          alt="PassPoint AI Tutor"
+          src={portraitSrc}
+          alt="AI Teacher"
+          onError={handleError}
           className={[
-            "relative w-full h-full object-contain drop-shadow-lg",
+            "relative w-[92%] h-[92%] rounded-full object-cover drop-shadow-lg ring-4 ring-white bg-white",
             speaking
-              ? "animate-[avatar-bob-fast_0.7s_ease-in-out_infinite]"
-              : "animate-[avatar-bob_3.5s_ease-in-out_infinite]",
+              ? "animate-[avatar-bob-fast_0.9s_ease-in-out_infinite]"
+              : "animate-[avatar-bob_4s_ease-in-out_infinite]",
           ].join(" ")}
           draggable={false}
         />
-        {/* Status ring */}
+        {/* Speaking pill */}
         <div
           className={[
-            "absolute -bottom-1 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-[10px] font-semibold flex items-center gap-1 shadow-card whitespace-nowrap",
+            "absolute -bottom-1 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-[10px] font-semibold flex items-center gap-1 shadow-card whitespace-nowrap z-10",
             speaking
               ? "bg-emerald-500 text-white"
               : "bg-white text-ink-500 border border-ink-100",
@@ -65,11 +111,10 @@ export default function TalkingAvatar({ speaking = false, size = "lg", caption }
               speaking ? "bg-white animate-ping" : "bg-ink-300",
             ].join(" ")}
           />
-          {speaking ? "Speaking" : "Listening"}
+          {speaking ? "Speaking" : "Ready"}
         </div>
       </div>
 
-      {/* Audio-wave bars under the avatar */}
       <WaveBars active={speaking} />
 
       {caption && (

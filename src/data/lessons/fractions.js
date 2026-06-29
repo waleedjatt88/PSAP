@@ -23,6 +23,7 @@ const fractionsLesson = {
     {
       id: "intro",
       heading: "Welcome",
+      visual: { type: "banner", icon: "🧮", label: "Fractions", subtitle: "JSS 1 Mathematics" },
       sentences: [
         "Hello students, and welcome to today's Mathematics lesson.",
         "Today's topic is Fractions.",
@@ -36,6 +37,7 @@ const fractionsLesson = {
     {
       id: "definition",
       heading: "Definition of a Fraction",
+      visual: { type: "pie", num: 3, den: 5, label: "Three out of five parts shaded" },
       sentences: [
         "A fraction is a number that represents a part of a whole, or a part of a group.",
         "Every fraction has two parts: the numerator and the denominator.",
@@ -48,6 +50,7 @@ const fractionsLesson = {
     {
       id: "proper",
       heading: "Proper Fractions",
+      visual: { type: "pie", num: 1, den: 2, label: "1/2 — numerator < denominator" },
       sentences: [
         "There are three main types of fractions.",
         "The first type is a proper fraction.",
@@ -59,6 +62,7 @@ const fractionsLesson = {
     {
       id: "improper",
       heading: "Improper Fractions",
+      visual: { type: "mixed-pies", whole: 1, num: 2, den: 5 },
       sentences: [
         "The second type is an improper fraction.",
         "An improper fraction is one where the numerator is greater than, or equal to, the denominator.",
@@ -69,6 +73,7 @@ const fractionsLesson = {
     {
       id: "mixed",
       heading: "Mixed Fractions",
+      visual: { type: "mixed-pies", whole: 1, num: 1, den: 2 },
       sentences: [
         "The third type is a mixed fraction, also called a mixed number.",
         "A mixed fraction has a whole number combined with a proper fraction.",
@@ -80,6 +85,12 @@ const fractionsLesson = {
     {
       id: "equivalent",
       heading: "Equivalent Fractions",
+      visual: {
+        type: "two-pies",
+        a: { num: 1, den: 2 },
+        b: { num: 2, den: 4 },
+        note: "Same value, different fractions",
+      },
       sentences: [
         "Equivalent fractions are different fractions that have the same value.",
         "For example, one over two is equal to two over four, which is also equal to three over six.",
@@ -90,6 +101,16 @@ const fractionsLesson = {
     {
       id: "convert-to-mixed",
       heading: "Converting Improper to Mixed",
+      visual: {
+        type: "math",
+        expression: "9/4 = 2¼",
+        steps: [
+          "Divide 9 ÷ 4 = 2 remainder 1",
+          "Quotient (2) becomes the whole number",
+          "Remainder (1) becomes the new numerator",
+          "Keep the denominator (4)",
+        ],
+      },
       sentences: [
         "To convert an improper fraction to a mixed fraction, follow these steps.",
         "Step one: divide the numerator by the denominator.",
@@ -103,6 +124,16 @@ const fractionsLesson = {
     {
       id: "convert-to-improper",
       heading: "Converting Mixed to Improper",
+      visual: {
+        type: "math",
+        expression: "2 ⅗ = 13/5",
+        steps: [
+          "Multiply whole × denominator:  2 × 5 = 10",
+          "Add the numerator:  10 + 3 = 13",
+          "Keep the denominator (5)",
+          "Result:  13/5",
+        ],
+      },
       sentences: [
         "To convert a mixed fraction to an improper fraction, follow these steps.",
         "Step one: multiply the whole number by the denominator.",
@@ -115,6 +146,15 @@ const fractionsLesson = {
     {
       id: "addition",
       heading: "Addition of Fractions",
+      visual: {
+        type: "math",
+        expression: "½ + ¼ = ¾",
+        steps: [
+          "LCM of 2 and 4 is 4",
+          "Convert ½ to 2/4",
+          "Add: 2/4 + 1/4 = 3/4",
+        ],
+      },
       sentences: [
         "Now let us learn how to add fractions.",
         "When the fractions have the same denominator, simply add the numerators and keep the denominator the same.",
@@ -128,6 +168,15 @@ const fractionsLesson = {
     {
       id: "subtraction",
       heading: "Subtraction of Fractions",
+      visual: {
+        type: "math",
+        expression: "¾ − ½ = ¼",
+        steps: [
+          "LCM of 4 and 2 is 4",
+          "Convert ½ to 2/4",
+          "Subtract: 3/4 − 2/4 = 1/4",
+        ],
+      },
       sentences: [
         "Subtraction of fractions works the same way as addition.",
         "When the denominators are the same, subtract the numerators and keep the denominator.",
@@ -139,6 +188,12 @@ const fractionsLesson = {
     {
       id: "summary",
       heading: "Summary",
+      visual: {
+        type: "banner",
+        icon: "✅",
+        label: "You learned",
+        subtitle: "Definition · Numerator & Denominator · Types · Equivalents · Conversions · Add/Sub",
+      },
       sentences: [
         "Let us summarize what we have learned today.",
         "A fraction represents part of a whole, with a numerator on top and a denominator on the bottom.",

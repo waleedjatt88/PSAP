@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { UserProvider } from "./store/user";
 import Layout from "./components/Layout";
+import RequireAuth from "./components/RequireAuth";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Lesson from "./pages/Lesson";
@@ -16,9 +17,22 @@ export default function App() {
     <UserProvider>
       <Routes>
         <Route path="/login" element={<Login />} />
+
+        {/* /lesson is rendered OUTSIDE the dashboard Layout so it can
+            take over the entire viewport like a real PowerPoint
+            presentation — no sidebar, no top bar. */}
+        <Route
+          path="/lesson"
+          element={
+            <RequireAuth>
+              <Lesson />
+            </RequireAuth>
+          }
+        />
+
+        {/* Everything else uses the regular dashboard chrome */}
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/lesson" element={<Lesson />} />
           <Route path="/subjects" element={<Subjects />} />
           <Route path="/progress" element={<Progress />} />
           <Route path="/bookmarks" element={<Bookmarks />} />

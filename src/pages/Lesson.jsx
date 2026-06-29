@@ -1,11 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useUser } from "../store/user";
-import {
-  ArrowLeftIcon,
-  ArrowRightIcon,
-  MicIcon,
-} from "../components/icons";
+import { ArrowLeftIcon, ArrowRightIcon, MicIcon, CloseIcon } from "../components/icons";
 import AskAIModal from "../components/AskAIModal";
 import TalkingAvatar from "../components/TalkingAvatar";
 import LessonSlide from "../components/LessonSlide";
@@ -32,7 +28,6 @@ export default function Lesson() {
   const sentences = useMemo(() => flat.map((f) => f.text), [flat]);
   const tele = useTeleprompter(sentences);
 
-  // Section starts — useful for slide navigation + auto-advance.
   const sections = lesson?.sections || [];
   const sectionStarts = useMemo(() => {
     const map = {};
@@ -42,29 +37,26 @@ export default function Lesson() {
     return map;
   }, [sections, flat]);
 
-  // Active slide is driven by:
-  //  - the section of the sentence currently being spoken (auto-advance)
-  //  - manual prev/next clicks (user override until next sentence triggers)
+  // The slide shown can be either auto-driven (by which section the AI
+  // is currently reading) or manually pinned via the dot navigator.
   const [manualSlide, setManualSlide] = useState(null);
   const currentSection = useMemo(() => {
     if (tele.currentIdx < 0 || tele.currentIdx >= flat.length) return null;
     return flat[tele.currentIdx].sectionId;
   }, [tele.currentIdx, flat]);
 
-  // Auto-advance: when the AI moves into a new section, drop any manual override
+  // When the AI moves into a new section, drop any manual override.
   useEffect(() => {
     if (currentSection) setManualSlide(null);
   }, [currentSection]);
 
-  // Which slide is showing?
-  const activeSectionId =
-    manualSlide || currentSection || sections[0]?.id;
+  const activeSectionId = manualSlide || currentSection || sections[0]?.id;
   const activeSlideIdx = sections.findIndex((s) => s.id === activeSectionId);
   const activeSection = sections[activeSlideIdx] || sections[0];
 
   const [askOpen, setAskOpen] = useState(false);
 
-  // Voice commands on the lesson page (pause / resume / ask).
+  // Voice commands while the lesson is presenting.
   const voiceCmd = useSpeechRecognition({
     continuous: true,
     interimResults: true,
@@ -88,7 +80,7 @@ export default function Lesson() {
     },
   });
 
-  // Stop speech + close modal when the lesson changes
+  // Stop speech + close modal when the lesson changes.
   useEffect(() => {
     tele.stop();
     setAskOpen(false);
@@ -107,7 +99,6 @@ export default function Lesson() {
     }
   }
 
-  // What was being read when the student interrupted?
   const resumeCtx = useMemo(() => {
     if (tele.currentIdx < 0 || tele.currentIdx >= flat.length) return null;
     const f = flat[tele.currentIdx];
@@ -116,23 +107,22 @@ export default function Lesson() {
 
   if (!lesson) {
     return (
-      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-amber-900">
-        Lesson not found.{" "}
-        <Link to="/subjects" className="font-semibold underline">
-          Back to subjects
-        </Link>
+      <div className="fixed inset-0 bg-white flex items-center justify-center p-6">
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-amber-900">
+          Lesson not found.{" "}
+          <Link to="/subjects" className="font-semibold underline">
+            Back to subjects
+          </Link>
+        </div>
       </div>
     );
   }
 
-  // Jump to a slide manually — does NOT change what's being spoken (the
-  // student can preview a future slide without interrupting the lesson).
   function goToSlide(idx) {
     const target = sections[idx];
     if (target) setManualSlide(target.id);
   }
   function startSlide() {
-    // Speak this slide from its first sentence.
     const startIdx = sectionStarts[activeSection.id];
     if (startIdx >= 0) tele.jumpTo(startIdx);
   }
@@ -143,23 +133,27 @@ export default function Lesson() {
   const isSpeaking = tele.state === "playing";
 
   return (
-    <div className="space-y-4 pb-28">
-      {/* Header / breadcrumb */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-2 text-sm text-ink-700">
-          <Link
-            to="/subjects"
-            className="flex items-center gap-2 hover:text-ink-900"
-          >
-            <ArrowLeftIcon className="w-4 h-4" />
-            <span>{subject.name}</span>
-          </Link>
-          <span className="text-ink-300">/</span>
-          <span className="font-semibold text-ink-900">{topic.title}</span>
+    <div className="fixed inset-0 bg-gradient-to-br from-slate-100 via-blue-50 to-orange-50 flex flex-col overflow-hidden">
+      {/* Presentation top bar */}
+      <div className="flex items-center justify-between px-6 py-3 bg-white/80 backdrop-blur border-b border-ink-100 shrink-0">
+        <button
+          onClick={() => navigate("/subjects")}
+          className="flex items-center gap-2 text-sm font-medium text-ink-700 hover:text-ink-900 px-3 py-1.5 rounded-lg hover:bg-ink-100"
+          title="Exit presentation"
+        >
+          <CloseIcon className="w-4 h-4" />
+          Exit
+        </button>
+
+        <div className="flex items-center gap-3 text-sm">
+          <div className="font-semibold text-ink-900">{subject.name}</div>
+          <span className="text-ink-300">·</span>
+          <div className="text-ink-700">{topic.title}</div>
         </div>
+
         <div className="flex items-center gap-2 text-xs">
           <span className="text-ink-500">Progress</span>
-          <div className="h-2 w-40 rounded-full bg-ink-100 overflow-hidden">
+          <div className="h-1.5 w-40 rounded-full bg-ink-100 overflow-hidden">
             <div
               className="h-full bg-brand-blue transition-all"
               style={{ width: `${progressPct}%` }}
@@ -171,74 +165,76 @@ export default function Lesson() {
         </div>
       </div>
 
-      {/* Classroom layout: avatar (left) + presentation slide (right) */}
-      <div className="grid lg:grid-cols-[18rem_minmax(0,1fr)] gap-4">
-        {/* Avatar column */}
-        <aside className="bg-white rounded-2xl shadow-card p-6 flex flex-col items-center text-center lg:sticky lg:top-20 lg:self-start">
-          <div className="inline-flex items-center gap-2 text-[10px] font-semibold text-brand-blue bg-blue-50 rounded-full px-2 py-1 mb-3">
-            ✨ PASSPOINT AI · BUILT FOR AFRICA
-          </div>
+      {/* Slide stage — fills all remaining vertical space */}
+      <div className="flex-1 min-h-0 px-6 py-4 lg:px-10 lg:py-6">
+        <LessonSlide
+          section={activeSection}
+          sectionStartIdx={sectionStarts[activeSection?.id] ?? 0}
+          currentIdx={tele.currentIdx}
+          slideNumber={activeSlideIdx + 1}
+          totalSlides={sections.length}
+          subject={subject.name}
+          topic={topic.title}
+          onSentenceClick={(globalIdx) => tele.jumpTo(globalIdx)}
+        />
+      </div>
+
+      {/* Avatar floats in the bottom-left corner */}
+      <div className="absolute bottom-24 left-6 z-30 hidden md:block">
+        <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl p-3 border border-ink-100">
           <TalkingAvatar
             speaking={isSpeaking}
-            size="lg"
+            size="md"
             caption={
               isSpeaking
-                ? `Sentence ${tele.currentIdx + 1} of ${flat.length}`
+                ? "Speaking…"
                 : tele.state === "paused"
-                  ? `Paused on sentence ${tele.currentIdx + 1}`
-                  : "Press play to start the lesson"
+                  ? "Paused"
+                  : "Press play"
             }
           />
+        </div>
+      </div>
 
-          {/* Primary controls inside the avatar column */}
-          <div className="mt-5 w-full space-y-2">
-            <button
-              onClick={isSpeaking ? tele.pause : tele.play}
-              disabled={!tele.supported}
-              className="w-full bg-brand-blue hover:bg-brand-blue-dark text-white text-sm font-semibold py-2.5 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSpeaking
-                ? "⏸  Pause"
+      {/* Floating control bar */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 w-[min(96vw,60rem)]">
+        <div className="bg-white shadow-2xl border border-ink-100 rounded-2xl p-2 flex items-center gap-2">
+          {/* Play / Pause */}
+          <button
+            onClick={isSpeaking ? tele.pause : tele.play}
+            disabled={!tele.supported}
+            className="w-12 h-12 rounded-full bg-brand-blue text-white text-xl flex items-center justify-center hover:bg-brand-blue-dark disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+            title={
+              isSpeaking
+                ? "Pause"
                 : tele.state === "paused"
-                  ? "▶  Resume"
-                  : "▶  Start lesson"}
-            </button>
-            <button
-              onClick={openAskAI}
-              className="w-full bg-brand-orange hover:bg-brand-orange-dark text-white text-sm font-semibold py-2.5 rounded-full flex items-center justify-center gap-2"
-            >
-              <MicIcon className="w-4 h-4" /> Ask a Question
-            </button>
-            {/* Voice command toggle */}
-            {voiceCmd.supported && (
-              <button
-                onClick={() =>
-                  voiceCmd.listening ? voiceCmd.stop() : voiceCmd.start()
-                }
-                className={[
-                  "w-full text-xs font-medium py-2 rounded-full transition-colors flex items-center justify-center gap-2",
-                  voiceCmd.listening
-                    ? "bg-red-500 text-white animate-pulse"
-                    : "bg-ink-100 text-ink-700 hover:bg-ink-300",
-                ].join(" ")}
-              >
-                🎙{" "}
-                {voiceCmd.listening
-                  ? "Listening… say \"pause\", \"continue\""
-                  : "Enable voice commands"}
-              </button>
-            )}
-          </div>
+                  ? "Resume"
+                  : "Start lesson"
+            }
+          >
+            {isSpeaking ? "⏸" : "▶"}
+          </button>
 
-          {/* Speed control */}
+          {/* Stop (only when active) */}
+          {tele.state !== "idle" && (
+            <button
+              onClick={tele.stop}
+              className="hidden sm:block px-3 py-2 text-xs font-medium text-ink-700 hover:bg-ink-100 rounded-lg"
+              title="Stop"
+            >
+              ■
+            </button>
+          )}
+
+          {/* Speed */}
           {tele.supported && (
-            <div className="mt-4 flex items-center gap-1 text-[10px] text-ink-500">
-              <span>Speed</span>
+            <div className="hidden md:flex items-center gap-1 px-2 border-l border-ink-100">
+              <span className="text-[10px] text-ink-500">Speed</span>
               {[0.85, 1, 1.25].map((r) => (
                 <button
                   key={r}
                   onClick={() => tele.setRate(r)}
-                  className={`px-1.5 py-0.5 rounded ${
+                  className={`text-[10px] px-1.5 py-0.5 rounded ${
                     tele.rate === r
                       ? "bg-brand-blue text-white"
                       : "bg-ink-100 text-ink-700 hover:bg-ink-300"
@@ -250,121 +246,91 @@ export default function Lesson() {
             </div>
           )}
 
-          {/* Voice command live transcript */}
-          {voiceCmd.listening && voiceCmd.transcript && (
-            <div className="mt-3 w-full bg-ink-900/90 text-white text-[11px] rounded-lg px-2 py-1.5 text-center">
-              🎙 "{voiceCmd.transcript}"
-            </div>
-          )}
-        </aside>
+          {/* Slide dots — clickable */}
+          <div className="flex-1 hidden sm:flex justify-center items-center gap-1.5 mx-2">
+            {sections.map((s, i) => (
+              <button
+                key={s.id}
+                onClick={() => goToSlide(i)}
+                title={`${i + 1}. ${s.heading}`}
+                className={[
+                  "h-2 rounded-full transition-all",
+                  i === activeSlideIdx
+                    ? "w-8 bg-brand-blue"
+                    : "w-2 bg-ink-300 hover:bg-ink-500",
+                ].join(" ")}
+              />
+            ))}
+          </div>
 
-        {/* Slide column */}
-        <div className="flex flex-col h-[min(70vh,38rem)]">
-          <LessonSlide
-            section={activeSection}
-            sectionStartIdx={sectionStarts[activeSection?.id] ?? 0}
-            currentIdx={tele.currentIdx}
-            slideNumber={activeSlideIdx + 1}
-            totalSlides={sections.length}
-            subject={subject.name}
-            topic={topic.title}
-            isActive
-            onSentenceClick={(globalIdx) => tele.jumpTo(globalIdx)}
-          />
-
-          {/* Slide navigation */}
-          <div className="bg-white rounded-2xl shadow-card mt-3 p-2 flex items-center justify-between gap-2">
+          {/* Prev / Next slide */}
+          <div className="hidden md:flex items-center gap-1 border-l border-ink-100 pl-2">
             <button
               onClick={() => goToSlide(activeSlideIdx - 1)}
               disabled={activeSlideIdx <= 0}
-              className="flex items-center gap-1 text-xs font-medium text-ink-700 hover:text-ink-900 disabled:opacity-30 disabled:cursor-not-allowed px-3 py-2"
+              className="p-2 text-ink-700 hover:bg-ink-100 rounded-lg disabled:opacity-30"
+              title="Previous slide"
             >
-              <ArrowLeftIcon className="w-4 h-4" /> Prev slide
+              <ArrowLeftIcon className="w-4 h-4" />
             </button>
-
-            {/* Slide dots */}
-            <div className="flex-1 flex justify-center items-center gap-1.5">
-              {sections.map((s, i) => (
-                <button
-                  key={s.id}
-                  onClick={() => goToSlide(i)}
-                  title={s.heading}
-                  className={[
-                    "h-2 rounded-full transition-all",
-                    i === activeSlideIdx
-                      ? "w-8 bg-brand-blue"
-                      : "w-2 bg-ink-300 hover:bg-ink-500",
-                  ].join(" ")}
-                />
-              ))}
-            </div>
-
-            <div className="flex items-center gap-2">
-              {/* If the active slide isn't the one being spoken, offer a
-                  "speak this slide" jump button */}
-              {activeSection?.id !== currentSection && (
-                <button
-                  onClick={startSlide}
-                  className="text-[10px] bg-brand-blue text-white px-2 py-1 rounded-full"
-                  title="Have the AI read this slide"
-                >
-                  ▶ Read this
-                </button>
-              )}
+            {activeSection?.id !== currentSection && (
               <button
-                onClick={() => goToSlide(activeSlideIdx + 1)}
-                disabled={activeSlideIdx >= sections.length - 1}
-                className="flex items-center gap-1 text-xs font-medium text-ink-700 hover:text-ink-900 disabled:opacity-30 disabled:cursor-not-allowed px-3 py-2"
+                onClick={startSlide}
+                className="text-[10px] bg-brand-blue text-white px-2 py-1 rounded-full"
+                title="Have the AI read this slide"
               >
-                Next slide <ArrowRightIcon className="w-4 h-4" />
+                ▶ Read
               </button>
-            </div>
+            )}
+            <button
+              onClick={() => goToSlide(activeSlideIdx + 1)}
+              disabled={activeSlideIdx >= sections.length - 1}
+              className="p-2 text-ink-700 hover:bg-ink-100 rounded-lg disabled:opacity-30"
+              title="Next slide"
+            >
+              <ArrowRightIcon className="w-4 h-4" />
+            </button>
           </div>
-        </div>
-      </div>
 
-      {/* Objectives bar */}
-      {lesson.objectives?.length > 0 && (
-        <div className="bg-white rounded-2xl shadow-card p-4">
-          <div className="text-[11px] uppercase tracking-wide text-ink-500 mb-2">
-            What you'll learn
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
-            {lesson.objectives.map((o) => (
-              <div
-                key={o}
-                className="text-xs text-ink-700 flex items-start gap-1.5"
-              >
-                <span className="text-emerald-500 mt-0.5">✓</span>
-                <span>{o}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+          {/* Voice command toggle */}
+          {voiceCmd.supported && (
+            <button
+              onClick={() =>
+                voiceCmd.listening ? voiceCmd.stop() : voiceCmd.start()
+              }
+              className={[
+                "w-10 h-10 rounded-full flex items-center justify-center text-base transition-colors shrink-0",
+                voiceCmd.listening
+                  ? "bg-red-500 text-white animate-pulse"
+                  : "bg-ink-100 text-ink-700 hover:bg-brand-blue hover:text-white",
+              ].join(" ")}
+              title={
+                voiceCmd.listening
+                  ? "Voice commands ON — say \"pause\", \"continue\""
+                  : "Enable voice commands"
+              }
+            >
+              🎙
+            </button>
+          )}
 
-      {/* Footer nav */}
-      <div className="bg-white rounded-2xl shadow-card p-3 flex items-center justify-between gap-2">
-        <Link
-          to="/subjects"
-          className="flex items-center gap-2 text-sm font-medium text-ink-700 hover:text-ink-900 px-3 py-2"
-        >
-          <ArrowLeftIcon className="w-4 h-4" /> All lessons
-        </Link>
-        <button
-          onClick={() =>
-            navigate(`/lesson?subject=${subject.id}&topic=${topic.title}`)
-          }
-          className="text-xs text-ink-500 hover:underline"
-        >
-          Restart from beginning
-        </button>
-        <Link
-          to="/dashboard"
-          className="flex items-center gap-2 text-sm font-medium text-ink-700 hover:text-ink-900 px-3 py-2"
-        >
-          Dashboard <ArrowRightIcon className="w-4 h-4" />
-        </Link>
+          {/* Ask AI — the headline action */}
+          <button
+            onClick={openAskAI}
+            className="flex items-center gap-2 bg-brand-orange hover:bg-brand-orange-dark text-white text-sm font-semibold px-4 py-2.5 rounded-full shadow-card"
+            title="Pause and ask a question"
+          >
+            <MicIcon className="w-4 h-4" />
+            <span className="hidden sm:inline">Ask AI</span>
+          </button>
+        </div>
+
+        {/* Live voice-command transcript bubble */}
+        {voiceCmd.listening && voiceCmd.transcript && (
+          <div className="mt-2 mx-auto max-w-md bg-ink-900/90 text-white text-xs rounded-full px-3 py-1.5 text-center shadow-card">
+            🎙 Heard: "{voiceCmd.transcript}"
+          </div>
+        )}
       </div>
 
       {/* Ask AI overlay */}
