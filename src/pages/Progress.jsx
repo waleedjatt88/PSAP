@@ -23,13 +23,13 @@ export default function Progress() {
         <p className="text-ink-500 text-sm">Track learning consistency, strengths and areas to improve.</p>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <Stat label="Lessons Completed" value="34" hint="+6 this week" />
         <Stat label="Avg. Score" value="78%" hint="+4% vs last week" />
         <Stat label="Time Spent" value="14h 20m" hint="This term" />
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
         <div className="bg-white rounded-2xl shadow-card p-5">
           <div className="font-bold mb-1">Weekly Activity</div>
           <div className="text-xs text-ink-500 mb-4">Minutes learning per day</div>

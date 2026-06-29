@@ -16,7 +16,7 @@ export default function Bookmarks() {
         <p className="text-ink-500 text-sm">Lessons you saved to revisit later.</p>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
         {items.map((b) => (
           <Link
             to="/lesson"

@@ -17,7 +17,7 @@ export default function Subjects() {
         </p>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
         {SUBJECTS.map((s) => (
           <div
             key={s.id}

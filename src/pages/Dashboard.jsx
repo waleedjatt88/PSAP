@@ -21,9 +21,9 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Hero */}
-      <div className="bg-gradient-to-r from-blue-50 via-white to-orange-50 rounded-2xl p-6 flex items-center justify-between shadow-card overflow-hidden">
-        <div className="max-w-md">
-          <h1 className="text-2xl font-extrabold text-ink-900">
+      <div className="bg-gradient-to-r from-blue-50 via-white to-orange-50 rounded-2xl p-4 sm:p-6 flex items-center justify-between shadow-card overflow-hidden gap-3">
+        <div className="max-w-md min-w-0">
+          <h1 className="text-xl sm:text-2xl font-extrabold text-ink-900">
             Good Morning, {user?.name?.split(" ")[0] || "Student"}
           </h1>
           <p className="text-ink-500 mt-1">
@@ -44,7 +44,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {stats.map(({ label, value, trend, icon: Icon, tint }) => (
           <div
             key={label}
@@ -73,7 +73,7 @@ export default function Dashboard() {
             View all →
           </Link>
         </div>
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
           {SUBJECTS.map((s) => {
             const t = s.topics[0];
             return (

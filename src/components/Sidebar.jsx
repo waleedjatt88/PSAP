@@ -7,6 +7,7 @@ import {
   BookmarkIcon,
   TrophyIcon,
   SettingsIcon,
+  CloseIcon,
 } from "./icons";
 import promoImg from "../assets/girl.png";
 
@@ -19,18 +20,43 @@ const items = [
   { to: "/settings", label: "Settings", icon: SettingsIcon },
 ];
 
-export default function Sidebar() {
+// Sidebar — sticky column on desktop, slide-in drawer on mobile.
+// Mobile drawer is controlled by parent via `open` + `onClose`.
+export default function Sidebar({ open = false, onClose }) {
   return (
-    <aside className="w-64 shrink-0 h-screen sticky top-0 bg-white border-r border-ink-100 flex flex-col">
-      <div className="px-6 pt-6 pb-4">
+    <aside
+      className={[
+        "shrink-0 bg-white border-r border-ink-100 flex flex-col",
+        // Desktop: classic sticky 16rem column
+        "lg:w-64 lg:h-screen lg:sticky lg:top-0",
+        // Mobile: fixed 17rem drawer that slides in from the left
+        "fixed inset-y-0 left-0 w-[17rem] z-40 transition-transform duration-200 lg:translate-x-0",
+        open ? "translate-x-0 shadow-2xl" : "-translate-x-full",
+      ].join(" ")}
+    >
+      {/* Mobile: close button row */}
+      <div className="lg:hidden flex items-center justify-between px-4 pt-4">
+        <Logo />
+        <button
+          onClick={onClose}
+          className="w-9 h-9 rounded-full hover:bg-ink-100 flex items-center justify-center text-ink-500"
+          aria-label="Close menu"
+        >
+          <CloseIcon className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Desktop: logo only */}
+      <div className="hidden lg:block px-6 pt-6 pb-4">
         <Logo />
       </div>
 
-      <nav className="flex-1 px-3 py-2 space-y-1">
+      <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
         {items.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
+            onClick={onClose}
             className={({ isActive }) =>
               [
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
