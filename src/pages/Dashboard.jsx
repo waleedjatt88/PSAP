@@ -1,10 +1,12 @@
 import { Link } from "react-router-dom";
 import { useUser } from "../store/user";
 import { TargetIcon, FlameIcon, BookIcon, StarIcon } from "../components/icons";
+import { SUBJECTS, findSubject, lessonHref } from "../data/curriculum";
 import heroImg from "../assets/hero.png";
 import mathImg from "../assets/Math.png";
 import scienceImg from "../assets/Science.png";
-import quizImg from "../assets/Quiz.png";
+
+const IMAGE_MAP = { math: mathImg, science: scienceImg };
 
 const stats = [
   { label: "Today Goal", value: "20 min", trend: "+8%", icon: TargetIcon, tint: "bg-blue-100 text-brand-blue" },
@@ -13,35 +15,18 @@ const stats = [
   { label: "Total Points", value: "120", trend: "+15", icon: StarIcon, tint: "bg-purple-100 text-purple-600" },
 ];
 
-const subjects = [
-  {
-    name: "Mathematics",
-    sub: "JSS 1 · 7 topics complete",
-    progress: 65,
-    accent: "from-blue-500 to-blue-700",
-    tint: "bg-blue-100",
-    img: mathImg,
-    topic: "Fractions",
-  },
-  {
-    name: "Basic Science",
-    sub: "JSS 1 · 5 topics complete",
-    progress: 40,
-    accent: "from-orange-400 to-orange-600",
-    tint: "bg-orange-100",
-    img: scienceImg,
-    topic: "Living Things",
-  },
-];
-
+// Recent activity is illustrative — uses real subject + topic data.
 const recent = [
-  { name: "Fractions", subject: "Mathematics", score: 85, color: "stroke-blue-500" },
-  { name: "Fractions", subject: "Mathematics", score: 72, color: "stroke-emerald-500" },
-  { name: "Fractions", subject: "Mathematics", score: 90, color: "stroke-orange-500" },
+  { subjectId: "mathematics", topic: "Fractions", score: 85, color: "stroke-blue-500" },
+  { subjectId: "basic-science", topic: "Photosynthesis", score: 72, color: "stroke-emerald-500" },
+  { subjectId: "english", topic: "Parts of Speech", score: 90, color: "stroke-rose-500" },
 ];
 
 export default function Dashboard() {
   const { user } = useUser();
+  // Featured = first two subjects on the dashboard for the "Your Subjects" card row.
+  const featured = SUBJECTS.slice(0, 2);
+
   return (
     <div className="space-y-6">
       {/* Hero */}
@@ -52,7 +37,7 @@ export default function Dashboard() {
           </h1>
           <p className="text-ink-500 mt-1">Ready to continue your learning journey</p>
           <Link
-            to="/lesson"
+            to={lessonHref("mathematics", "Fractions")}
             className="inline-flex mt-4 bg-brand-blue hover:bg-brand-blue-dark text-white text-sm font-semibold px-4 py-2 rounded-full shadow-card"
           >
             Let's continue your journey →
@@ -83,20 +68,31 @@ export default function Dashboard() {
 
       {/* Subjects */}
       <div>
-        <h2 className="text-lg font-bold mb-3">Your Subjects</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-bold">Your Subjects</h2>
+          <Link to="/subjects" className="text-xs font-semibold text-brand-blue hover:underline">
+            View all →
+          </Link>
+        </div>
         <div className="grid md:grid-cols-2 gap-4">
-          {subjects.map((s) => (
+          {featured.map((s) => (
             <Link
-              to="/lesson"
-              key={s.name}
-              className={`group rounded-2xl p-5 shadow-card bg-white border border-ink-100 hover:shadow-soft transition-shadow flex items-center gap-5`}
+              to={lessonHref(s.id, s.topics[0])}
+              key={s.id}
+              className="group rounded-2xl p-5 shadow-card bg-white border border-ink-100 hover:shadow-soft transition-shadow flex items-center gap-5"
             >
-              <div className={`w-16 h-16 rounded-xl flex items-center justify-center ${s.tint} shrink-0`}>
-                <img src={s.img} alt={s.name} className="w-14 h-14 object-contain" />
+              <div className={`w-16 h-16 rounded-xl flex items-center justify-center ${s.iconTint} shrink-0`}>
+                {IMAGE_MAP[s.image] ? (
+                  <img src={IMAGE_MAP[s.image]} alt={s.name} className="w-14 h-14 object-contain" />
+                ) : (
+                  <span className="text-3xl">{s.emoji}</span>
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-ink-900">{s.name}</div>
-                <div className="text-xs text-ink-500">{s.sub}</div>
+                <div className="text-xs text-ink-500">
+                  JSS 1 · Next: {s.topics[0]}
+                </div>
                 <div className="h-2 mt-3 rounded-full bg-ink-100 overflow-hidden">
                   <div
                     className={`h-full bg-gradient-to-r ${s.accent}`}
@@ -115,16 +111,23 @@ export default function Dashboard() {
       <div>
         <h2 className="text-lg font-bold mb-3">Recent Activity</h2>
         <div className="grid md:grid-cols-3 gap-4">
-          {recent.map((r, i) => (
-            <div key={i} className="bg-white rounded-2xl p-5 shadow-card flex items-center justify-between">
-              <div>
-                <div className="font-semibold text-ink-900">{r.name}</div>
-                <div className="text-xs text-ink-500">{r.subject}</div>
-                <div className="text-xs text-emerald-600 mt-2">Completed</div>
-              </div>
-              <ScoreRing value={r.score} stroke={r.color} />
-            </div>
-          ))}
+          {recent.map((r, i) => {
+            const sub = findSubject(r.subjectId);
+            return (
+              <Link
+                to={lessonHref(r.subjectId, r.topic)}
+                key={i}
+                className="bg-white rounded-2xl p-5 shadow-card flex items-center justify-between hover:shadow-soft transition-shadow"
+              >
+                <div>
+                  <div className="font-semibold text-ink-900">{r.topic}</div>
+                  <div className="text-xs text-ink-500">{sub.name}</div>
+                  <div className="text-xs text-emerald-600 mt-2">Completed</div>
+                </div>
+                <ScoreRing value={r.score} stroke={r.color} />
+              </Link>
+            );
+          })}
         </div>
       </div>
     </div>

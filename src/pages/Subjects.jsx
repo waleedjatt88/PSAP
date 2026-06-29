@@ -1,45 +1,81 @@
 import { Link } from "react-router-dom";
+import { SUBJECTS, lessonHref } from "../data/curriculum";
+import mathImg from "../assets/Math.png";
+import scienceImg from "../assets/Science.png";
 
-const subjects = [
-  { name: "English Language", emoji: "📚", topics: 12, progress: 58, tint: "from-rose-100 to-rose-50" },
-  { name: "Mathematics", emoji: "📐", topics: 14, progress: 72, tint: "from-blue-100 to-blue-50" },
-  { name: "Basic Science", emoji: "🌱", topics: 10, progress: 40, tint: "from-emerald-100 to-emerald-50" },
-  { name: "Basic Technology", emoji: "🛠️", topics: 8, progress: 25, tint: "from-amber-100 to-amber-50" },
-  { name: "Social Studies", emoji: "🌍", topics: 9, progress: 60, tint: "from-violet-100 to-violet-50" },
-  { name: "Civic Education", emoji: "⚖️", topics: 7, progress: 30, tint: "from-cyan-100 to-cyan-50" },
-  { name: "Computer Studies", emoji: "💻", topics: 6, progress: 80, tint: "from-indigo-100 to-indigo-50" },
-  { name: "Agricultural Science", emoji: "🌾", topics: 8, progress: 15, tint: "from-lime-100 to-lime-50" },
-  { name: "Business Studies", emoji: "💼", topics: 6, progress: 50, tint: "from-orange-100 to-orange-50" },
-];
+const IMAGE_MAP = { math: mathImg, science: scienceImg };
 
 export default function Subjects() {
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-extrabold text-ink-900">Your Subjects</h1>
-        <p className="text-ink-500 text-sm">JSS 1 · First Term · Aligned with the Nigerian curriculum</p>
+        <p className="text-ink-500 text-sm">
+          JSS 1 · First Term · Aligned with the Nigerian curriculum. Click any
+          topic to start an AI-led lesson.
+        </p>
       </div>
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {subjects.map((s) => (
-          <Link
-            to="/lesson"
-            key={s.name}
-            className={`block rounded-2xl shadow-card overflow-hidden bg-gradient-to-br ${s.tint} hover:shadow-soft transition-shadow border border-white`}
+      <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+        {SUBJECTS.map((s) => (
+          <div
+            key={s.id}
+            className={`rounded-2xl shadow-card overflow-hidden bg-gradient-to-br ${s.tint} border border-white flex flex-col`}
           >
-            <div className="p-5">
-              <div className="text-3xl">{s.emoji}</div>
-              <div className="font-bold mt-3 text-ink-900">{s.name}</div>
-              <div className="text-xs text-ink-500">{s.topics} topics</div>
-              <div className="h-2 mt-3 rounded-full bg-white/70 overflow-hidden">
-                <div className="h-full bg-brand-blue" style={{ width: `${s.progress}%` }} />
+            <div className="p-5 flex items-start gap-4">
+              <div
+                className={`w-14 h-14 rounded-xl ${s.iconTint} flex items-center justify-center text-3xl shrink-0`}
+              >
+                {IMAGE_MAP[s.image] ? (
+                  <img
+                    src={IMAGE_MAP[s.image]}
+                    alt=""
+                    className="w-12 h-12 object-contain"
+                  />
+                ) : (
+                  s.emoji
+                )}
               </div>
-              <div className="text-[11px] text-ink-500 mt-1">{s.progress}% complete</div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-ink-900">{s.name}</div>
+                <div className="text-xs text-ink-500">
+                  {s.topics.length} topics
+                </div>
+                <div className="h-2 mt-2 rounded-full bg-white/70 overflow-hidden">
+                  <div
+                    className={`h-full bg-gradient-to-r ${s.accent}`}
+                    style={{ width: `${s.progress}%` }}
+                  />
+                </div>
+                <div className="text-[11px] text-ink-500 mt-1">
+                  {s.progress}% complete
+                </div>
+              </div>
             </div>
-            <div className="bg-white px-5 py-3 text-xs font-semibold text-brand-blue">
-              Continue learning →
+
+            <div className="bg-white px-5 py-3 flex-1">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-500 mb-2">
+                Topics
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {s.topics.map((t) => (
+                  <Link
+                    key={t}
+                    to={lessonHref(s.id, t)}
+                    className="text-[11px] bg-ink-100 hover:bg-brand-blue hover:text-white text-ink-700 rounded-full px-2.5 py-1 transition-colors"
+                  >
+                    {t}
+                  </Link>
+                ))}
+              </div>
+              <Link
+                to={lessonHref(s.id, s.topics[0])}
+                className="block mt-3 text-xs font-semibold text-brand-blue hover:underline"
+              >
+                Continue learning →
+              </Link>
             </div>
-          </Link>
+          </div>
         ))}
       </div>
     </div>

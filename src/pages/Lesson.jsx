@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useUser } from "../store/user";
 import {
   ArrowLeftIcon,
@@ -10,80 +10,92 @@ import {
 } from "../components/icons";
 import mascotImg from "../assets/AI_Lesson.png";
 import mathImg from "../assets/Math.png";
+import scienceImg from "../assets/Science.png";
+import { findSubject, lessonHref } from "../data/curriculum";
 
-const OUTLINE = [
-  "What is a Fraction?",
-  "Types of Fractions",
-  "Equivalent Fractions",
-  "Adding Fractions",
-  "Practice Fractions",
-];
+const ILLUSTRATION_MAP = { math: mathImg, science: scienceImg };
 
-const SUGGESTED = [
-  "Explain in simpler words",
-  "Give me an example",
-  "What's the difference between ½ and ¼?",
-  "Quiz me on fractions",
-];
+// Suggested follow-up chips. The current topic name is injected at render time.
+function buildSuggested(topic) {
+  return [
+    "Explain in simpler words",
+    "Give me an example",
+    `Why is ${topic} important?`,
+    `Quiz me on ${topic}`,
+  ];
+}
 
-const DEFAULT_LESSON = {
-  title: "Fractions",
-  greeting:
-    "Hello {name}! 👋 Today, we're going to learn about Fractions.",
-  definition:
-    "A fraction is a number that represents a part of a whole or a part of a group. It is written in the form a/b, where a and b are whole numbers and b ≠ 0. The number on the top is called the numerator, and the number on the bottom is called the denominator.",
-  keyParts: [
-    {
-      name: "Numerator (a)",
-      description:
-        "The top number of a fraction. It shows how many equal parts are taken. Example: in 3/5, the numerator is 3.",
-    },
-    {
-      name: "Denominator (b)",
-      description:
-        "The bottom number of a fraction. It shows the total number of equal parts. Example: in 3/5, the denominator is 5.",
-    },
-  ],
-  keyTakeaways: [
-    "A fraction represents a part of a whole.",
-    "Numerator tells how many parts are taken.",
-    "Denominator tells the total number of equal parts.",
-  ],
-  tipsFromAI:
-    "Imagine a pizza cut into 4 equal slices. If you take 1 slice, you have 1/4 of the pizza!",
-  outline: OUTLINE,
-};
+// Lightweight placeholder lesson shown while the AI is generating (or as a
+// fallback if the AI call fails entirely). It's deliberately generic so it
+// works for any subject + topic.
+function buildPlaceholderLesson(subjectName, topic) {
+  return {
+    title: topic,
+    greeting: `Hello {name}! 👋 Today, we're going to learn about ${topic} in ${subjectName}.`,
+    definition: `Loading your personalized lesson on ${topic}…`,
+    keyParts: [],
+    keyTakeaways: [],
+    tipsFromAI: "",
+    outline: [`What is ${topic}?`, `Examples of ${topic}`, `Practice ${topic}`],
+  };
+}
 
 export default function Lesson() {
   const { user } = useUser();
-  const [lesson, setLesson] = useState(DEFAULT_LESSON);
+  const [search] = useSearchParams();
+
+  // Read subject + topic from URL (?subject=...&topic=...). Falls back to the
+  // first curriculum subject and its first topic so /lesson with no params
+  // still renders.
+  const subjectId = search.get("subject") || "mathematics";
+  const topic = search.get("topic") || "Fractions";
+  const subject = useMemo(() => findSubject(subjectId), [subjectId]);
+
+  const [lesson, setLesson] = useState(() =>
+    buildPlaceholderLesson(subject.name, topic),
+  );
   const [activeStep, setActiveStep] = useState(0);
   const [tutorOpen, setTutorOpen] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const voice = useVoiceLesson();
 
-  // Fetch a fresh AI-generated lesson on mount (falls back to default if API fails)
+  // Topics from the curriculum become the lesson outline. The currently-open
+  // topic is highlighted.
+  const outline = subject.topics;
+  const topicIndex = Math.max(0, outline.indexOf(topic));
+
+  // Fetch a fresh AI-generated lesson whenever subject/topic/class changes.
   useEffect(() => {
     let alive = true;
     async function load() {
       setLoading(true);
+      setError(null);
+      setLesson(buildPlaceholderLesson(subject.name, topic));
+      setActiveStep(topicIndex);
+      voice.stop();
       try {
         const r = await fetch("/api/lesson", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             classLevel: user?.classLevel || "JSS 1",
-            subject: "Mathematics",
-            topic: "Fractions",
+            subject: subject.name,
+            topic,
           }),
         });
-        if (!r.ok) throw new Error("Lesson API failed");
+        if (!r.ok) {
+          const data = await r.json().catch(() => ({}));
+          throw new Error(data.error || `HTTP ${r.status}`);
+        }
         const data = await r.json();
         if (!alive) return;
-        // Merge with defaults so missing fields still render
-        setLesson((prev) => ({ ...prev, ...data }));
+        // Merge with placeholder so any missing field still renders.
+        setLesson((prev) => ({ ...prev, ...data, title: data.title || topic }));
       } catch (e) {
-        console.warn("Using default lesson:", e.message);
+        if (!alive) return;
+        console.warn("Lesson AI call failed:", e.message);
+        setError(e.message);
       } finally {
         if (alive) setLoading(false);
       }
@@ -92,21 +104,35 @@ export default function Lesson() {
     return () => {
       alive = false;
     };
-  }, [user?.classLevel]);
+    // voice intentionally not in deps — its stop() is stable for our usage.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subject.id, topic, user?.classLevel]);
 
-  const greeting = (lesson.greeting || DEFAULT_LESSON.greeting).replace(
-    "{name}",
-    user?.name?.split(" ")[0] || "there",
-  );
-  const progress = ((activeStep + 1) / OUTLINE.length) * 100;
+  const SUGGESTED = buildSuggested(topic);
+
+  const illustration =
+    subject.image && ILLUSTRATION_MAP[subject.image]
+      ? ILLUSTRATION_MAP[subject.image]
+      : null;
+
+  const greeting = (
+    lesson.greeting ||
+    `Hello {name}! 👋 Today, we're going to learn about ${topic}.`
+  ).replace("{name}", user?.name?.split(" ")[0] || "there");
+  const progress = ((activeStep + 1) / Math.max(outline.length, 1)) * 100;
 
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <Link to="/dashboard" className="flex items-center gap-2 text-sm text-ink-700 hover:text-ink-900">
-          <ArrowLeftIcon className="w-4 h-4" /> AI Lesson
-        </Link>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2 text-sm text-ink-700">
+          <Link to="/subjects" className="flex items-center gap-2 hover:text-ink-900">
+            <ArrowLeftIcon className="w-4 h-4" />
+            <span>{subject.name}</span>
+          </Link>
+          <span className="text-ink-300">/</span>
+          <span className="font-semibold text-ink-900">{topic}</span>
+        </div>
         <div className="flex items-center gap-2 text-xs">
           <span className="text-ink-500">Progress</span>
           <div className="h-2 w-40 rounded-full bg-ink-100 overflow-hidden">
@@ -210,33 +236,62 @@ export default function Lesson() {
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-card p-5 flex items-center justify-center">
-              <img src={mathImg} alt="Fraction example" className="w-56 h-56 object-contain" />
+            <div className="bg-white rounded-2xl shadow-card p-5 flex items-center justify-center min-h-[16rem]">
+              {illustration ? (
+                <img
+                  src={illustration}
+                  alt={`${topic} illustration`}
+                  className="w-56 h-56 object-contain"
+                />
+              ) : (
+                <div
+                  className={`w-44 h-44 rounded-full bg-gradient-to-br ${subject.tint} flex items-center justify-center text-7xl shadow-inner`}
+                >
+                  {subject.emoji}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Footer nav */}
-          <div className="bg-white rounded-2xl shadow-card p-3 flex items-center justify-between">
-            <button
-              onClick={() => setActiveStep((s) => Math.max(0, s - 1))}
-              className="flex items-center gap-2 text-sm font-medium text-ink-700 hover:text-ink-900 px-3 py-2"
-            >
-              <ArrowLeftIcon className="w-4 h-4" /> Previous
-            </button>
+          {error && (
+            <div className="bg-amber-50 border border-amber-200 text-amber-900 text-xs rounded-xl p-3">
+              ⚠️ Couldn't generate this lesson with AI:{" "}
+              <code className="bg-amber-100 px-1 rounded">{error}</code>
+            </div>
+          )}
+
+          {/* Footer nav — Prev / Next walk through the subject's topics */}
+          <div className="bg-white rounded-2xl shadow-card p-3 flex items-center justify-between gap-2">
+            {topicIndex > 0 ? (
+              <Link
+                to={lessonHref(subject.id, outline[topicIndex - 1])}
+                className="flex items-center gap-2 text-sm font-medium text-ink-700 hover:text-ink-900 px-3 py-2"
+              >
+                <ArrowLeftIcon className="w-4 h-4" />
+                <span className="hidden sm:inline">{outline[topicIndex - 1]}</span>
+                <span className="sm:hidden">Previous</span>
+              </Link>
+            ) : (
+              <span className="px-3 py-2 text-sm text-ink-300">Previous</span>
+            )}
             <button
               onClick={() => setTutorOpen(true)}
-              className="flex items-center gap-2 bg-brand-blue text-white text-sm font-semibold px-5 py-2.5 rounded-full shadow-card hover:bg-brand-blue-dark"
+              className="flex items-center gap-2 bg-brand-blue text-white text-sm font-semibold px-5 py-2.5 rounded-full shadow-card hover:bg-brand-blue-dark shrink-0"
             >
               <MicIcon className="w-4 h-4" /> ASK AI
             </button>
-            <button
-              onClick={() =>
-                setActiveStep((s) => Math.min(OUTLINE.length - 1, s + 1))
-              }
-              className="flex items-center gap-2 text-sm font-medium text-ink-700 hover:text-ink-900 px-3 py-2"
-            >
-              Next <ArrowRightIcon className="w-4 h-4" />
-            </button>
+            {topicIndex < outline.length - 1 ? (
+              <Link
+                to={lessonHref(subject.id, outline[topicIndex + 1])}
+                className="flex items-center gap-2 text-sm font-medium text-ink-700 hover:text-ink-900 px-3 py-2"
+              >
+                <span className="hidden sm:inline">{outline[topicIndex + 1]}</span>
+                <span className="sm:hidden">Next</span>
+                <ArrowRightIcon className="w-4 h-4" />
+              </Link>
+            ) : (
+              <span className="px-3 py-2 text-sm text-ink-300">Next</span>
+            )}
           </div>
         </div>
 
@@ -244,12 +299,13 @@ export default function Lesson() {
         <div className={`${tutorOpen ? "col-span-12 lg:col-span-4 xl:col-span-3" : "hidden"}`}>
           <AITutorPanel
             user={user}
-            topic={lesson.title}
+            subject={subject}
+            topic={topic}
             keyTakeaways={lesson.keyTakeaways}
             tipsFromAI={lesson.tipsFromAI}
-            outline={lesson.outline || OUTLINE}
-            activeStep={activeStep}
-            setActiveStep={setActiveStep}
+            outline={outline}
+            activeStep={topicIndex}
+            suggested={SUGGESTED}
             onClose={() => setTutorOpen(false)}
           />
         </div>
@@ -260,19 +316,27 @@ export default function Lesson() {
 
 function AITutorPanel({
   user,
+  subject,
   topic,
   keyTakeaways,
   tipsFromAI,
   outline,
   activeStep,
-  setActiveStep,
+  suggested,
   onClose,
 }) {
+  const navigate = useNavigate();
   const [tab, setTab] = useState("outline");
+  // Chat history resets whenever the topic changes — otherwise prior context
+  // would bleed across subjects.
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const scrollRef = useRef(null);
+
+  useEffect(() => {
+    setMessages([]);
+  }, [topic, subject.id]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -295,7 +359,7 @@ function AITutorPanel({
           messages: next,
           context: {
             classLevel: user?.classLevel || "JSS 1",
-            subject: "Mathematics",
+            subject: subject.name,
             topic,
           },
         }),
@@ -309,14 +373,14 @@ function AITutorPanel({
         "Sorry, I couldn't reach the AI service right now. Please try again in a moment.";
       if (/invalid_api_key|Incorrect API key/i.test(raw)) {
         friendly =
-          "⚠️ The OpenAI API key is invalid or expired. Update OPENAI_API_KEY in .env and restart the dev server.";
+          "⚠️ The AI provider's API key is invalid or expired. Update the key in .env and restart the dev server.";
       } else if (/insufficient_quota|exceeded_quota/i.test(raw)) {
         friendly =
-          "⚠️ This OpenAI account has run out of credits. Add billing or use a different key.";
-      } else if (/rate_limit/i.test(raw)) {
-        friendly = "⚠️ Hit the OpenAI rate limit. Wait a few seconds and try again.";
+          "⚠️ This AI account has run out of credits. Switch providers in .env (e.g. AI_PROVIDER=groq) or top up.";
+      } else if (/rate_limit|rate-limit/i.test(raw)) {
+        friendly = "⚠️ Hit the AI provider's rate limit. Wait a few seconds and try again.";
       } else if (/missing/i.test(raw)) {
-        friendly = "⚠️ OPENAI_API_KEY is missing on the server. Add it to .env and restart.";
+        friendly = "⚠️ API key missing on the server. Add it to .env and restart.";
       }
       setMessages((m) => [...m, { role: "assistant", content: friendly }]);
       console.error("[chat]", raw);
@@ -355,7 +419,7 @@ function AITutorPanel({
               {outline.map((o, i) => (
                 <li key={o}>
                   <button
-                    onClick={() => setActiveStep(i)}
+                    onClick={() => navigate(lessonHref(subject.id, o))}
                     className={`w-full text-left text-xs px-2.5 py-2 rounded-lg flex items-center gap-2 ${
                       i === activeStep
                         ? "bg-brand-blue/10 text-brand-blue font-semibold"
@@ -407,12 +471,23 @@ function AITutorPanel({
             </div>
           )}
 
-          <button
-            onClick={() => setTab("chat")}
-            className="w-full bg-brand-blue text-white text-xs font-semibold py-2 rounded-lg hover:bg-brand-blue-dark"
-          >
-            Continue Lesson →
-          </button>
+          {activeStep < outline.length - 1 ? (
+            <button
+              onClick={() =>
+                navigate(lessonHref(subject.id, outline[activeStep + 1]))
+              }
+              className="w-full bg-brand-blue text-white text-xs font-semibold py-2 rounded-lg hover:bg-brand-blue-dark"
+            >
+              Next: {outline[activeStep + 1]} →
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate("/subjects")}
+              className="w-full bg-emerald-500 text-white text-xs font-semibold py-2 rounded-lg hover:bg-emerald-600"
+            >
+              ✓ Subject complete — back to subjects
+            </button>
+          )}
         </div>
       ) : (
         <>
@@ -421,7 +496,7 @@ function AITutorPanel({
               Try a question
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {SUGGESTED.map((s) => (
+              {(suggested || []).map((s) => (
                 <button
                   key={s}
                   onClick={() => send(s)}
