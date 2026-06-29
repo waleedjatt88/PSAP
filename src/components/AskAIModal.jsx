@@ -417,9 +417,54 @@ function buildGreeting(presenterName, lesson, resumeContext) {
 }
 
 // Locally serialize the lesson — sent as the AI's only knowledge source.
+// We include not just the spoken sections but also the official quiz bank
+// (Quick Quiz / MCQs / Theory / Assignment) so the AI can use the EXACT
+// questions from the lesson notes when the student asks to be quizzed.
 function lessonToText(lesson) {
   if (!lesson?.sections) return "";
-  return lesson.sections
-    .map((s) => `## ${s.heading}\n${(s.sentences || []).join(" ")}`)
-    .join("\n\n");
+  const parts = lesson.sections.map(
+    (s) => `## ${s.heading}\n${(s.sentences || []).join(" ")}`,
+  );
+
+  if (lesson.quiz) {
+    const { quickQuiz, mcqs, theory, assignment } = lesson.quiz;
+    const quizBlock = ["", "# OFFICIAL QUIZ BANK (use these EXACT questions when student asks)"];
+
+    if (quickQuiz?.length) {
+      quizBlock.push("\n## Quick Quiz");
+      quickQuiz.forEach((q, i) => {
+        quizBlock.push(`${i + 1}. ${q.q}  [${q.marks} marks]`);
+        if (q.a) quizBlock.push(`   Answer: ${q.a}`);
+      });
+    }
+
+    if (mcqs?.length) {
+      quizBlock.push("\n## Multiple Choice Questions (MCQs)");
+      mcqs.forEach((m, i) => {
+        quizBlock.push(`${i + 1}. ${m.q}  [${m.marks} marks]`);
+        Object.entries(m.options).forEach(([key, val]) =>
+          quizBlock.push(`   ${key}. ${val}`),
+        );
+        quizBlock.push(`   Correct answer: ${m.answer}`);
+      });
+    }
+
+    if (theory?.length) {
+      quizBlock.push("\n## Theory Questions");
+      theory.forEach((t, i) =>
+        quizBlock.push(`${i + 1}. ${t.q}  [${t.marks} marks]`),
+      );
+    }
+
+    if (assignment?.length) {
+      quizBlock.push("\n## Assignment (Take Home)");
+      assignment.forEach((a, i) =>
+        quizBlock.push(`${i + 1}. ${a.q}  [${a.marks} marks]`),
+      );
+    }
+
+    parts.push(quizBlock.join("\n"));
+  }
+
+  return parts.join("\n\n");
 }
