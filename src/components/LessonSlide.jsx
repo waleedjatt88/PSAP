@@ -55,7 +55,7 @@ export default function LessonSlide({
   return (
     <div
       key={section.id}
-      className="bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col h-full slide-enter border-4 border-ink-100"
+      className="bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col h-full slide-enter"
     >
       {/* Slide chrome — subject + slide number (top banner) */}
       <div className="px-8 py-3 bg-gradient-to-r from-brand-blue via-brand-blue-light to-brand-blue text-white flex items-center justify-between text-sm shrink-0">
@@ -67,8 +67,8 @@ export default function LessonSlide({
         </div>
       </div>
 
-      {/* Heading bar */}
-      <div className="px-10 lg:px-14 py-7 border-b-2 border-ink-100 bg-gradient-to-b from-blue-50/60 to-transparent shrink-0">
+      {/* Heading bar — plain white, soft separator only. */}
+      <div className="px-10 lg:px-14 py-7 border-b border-ink-100 shrink-0">
         <div className="text-[11px] uppercase tracking-[0.2em] text-brand-blue font-bold mb-1">
           Topic
         </div>
@@ -112,9 +112,9 @@ export default function LessonSlide({
           </p>
         </div>
 
-        {/* Topic-specific visual (pie chart, icon grid, etc.) */}
+        {/* Topic-specific visual — plain white, no border. */}
         {hasVisual && (
-          <div className="flex items-center justify-center bg-gradient-to-br from-ink-100/40 to-blue-50/40 rounded-2xl p-6 lg:p-8 overflow-y-auto border border-ink-100">
+          <div className="flex items-center justify-center bg-white p-6 lg:p-8 overflow-y-auto">
             <div className="w-full max-w-md">
               <LessonVisual visual={section.visual} />
             </div>

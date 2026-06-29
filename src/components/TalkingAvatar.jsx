@@ -1,32 +1,26 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import mascotImg from "../assets/AI_Lesson.png";
 
-// Realistic AI teacher avatar.
+// Realistic AI teacher avatar with an in-app photo picker.
 //
-// Image resolution chain (first match wins):
-//   1. /teacher-avatar.jpg — drop ANY photo at
-//      passpoint-demo/public/teacher-avatar.jpg and it shows up here.
-//      .png, .webp also work — see TEACHER_PATHS below.
-//   2. DiceBear "personas" portrait — generated illustrated character.
-//   3. Robot mascot bundled with the app — final safety net.
+// Image-resolution chain (first match wins):
+//   1. User-uploaded photo from localStorage (set via the picker below).
+//   2. Local files in /public — /teacher-avatar.jpg/.jpeg/.png/.webp.
+//   3. Hosted Unsplash CDN portraits (real, free-to-use photos).
+//   4. DiceBear illustrated portrait — works without network.
+//   5. Bundled robot mascot — final safety net.
 //
-// To swap the teacher: save your preferred photo to
-//   passpoint-demo/public/teacher-avatar.jpg
-// then refresh the page — no code changes needed.
-// Resolution chain for the teacher portrait:
-//   1. Local files in /public — drop in whatever photo you like.
-//   2. Hosted photo URLs (Unsplash CDN) — real, free-to-use portraits
-//      so the demo never starts with a cartoon avatar.
-//   3. DiceBear illustrated portrait — works without network if the
-//      Unsplash URLs ever break.
-//   4. Bundled robot mascot — last-resort safety net.
+// Clicking the "Change photo" pill under the avatar opens a file picker.
+// The selected image is read as a base64 data URL and stored in
+// localStorage so it persists across reloads.
+
+const LS_KEY = "pp_teacher_avatar";
+
 const TEACHER_PATHS = [
   "/teacher-avatar.jpg",
   "/teacher-avatar.jpeg",
   "/teacher-avatar.png",
   "/teacher-avatar.webp",
-  // Public Unsplash CDN portraits — professional African male in suit.
-  // Square-cropped at 400x400 with face-aware cropping.
   "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=400&h=400&fit=crop&crop=faces&q=80",
   "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=faces&q=80",
 ];
@@ -38,6 +32,14 @@ const DICEBEAR_URL = (seed) =>
 
 const DEFAULT_SEED = "Mr+Adebayo+Teacher";
 
+function readStoredAvatar() {
+  try {
+    return localStorage.getItem(LS_KEY) || null;
+  } catch {
+    return null;
+  }
+}
+
 export default function TalkingAvatar({
   speaking = false,
   size = "lg",
@@ -45,14 +47,35 @@ export default function TalkingAvatar({
   presenterName = "AI Teacher",
   teacherSeed = DEFAULT_SEED,
   showNamePlate = false,
+  allowChange = false,
 }) {
-  // `srcIdx` walks the TEACHER_PATHS array; once exhausted we fall through
-  // to DiceBear, and finally to the bundled robot mascot.
+  // User-uploaded image (data URL) from localStorage. Takes precedence.
+  const [userImg, setUserImg] = useState(() => readStoredAvatar());
   const [srcIdx, setSrcIdx] = useState(0);
   const [usingDicebear, setUsingDicebear] = useState(false);
   const [usingMascot, setUsingMascot] = useState(false);
+  const fileInputRef = useRef(null);
+
+  // Keep userImg synced if another component changes it (rare).
+  useEffect(() => {
+    function onStorage(e) {
+      if (e.key === LS_KEY) setUserImg(e.newValue);
+    }
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   function handleError() {
+    if (userImg) {
+      // User upload failed to render — likely corrupted; clear it.
+      try {
+        localStorage.removeItem(LS_KEY);
+      } catch {
+        /* ignore */
+      }
+      setUserImg(null);
+      return;
+    }
     if (srcIdx < TEACHER_PATHS.length - 1) {
       setSrcIdx(srcIdx + 1);
     } else if (!usingDicebear) {
@@ -62,11 +85,51 @@ export default function TalkingAvatar({
     }
   }
 
-  const portraitSrc = usingMascot
-    ? mascotImg
-    : usingDicebear
-      ? DICEBEAR_URL(teacherSeed)
-      : TEACHER_PATHS[srcIdx];
+  function pickFile() {
+    fileInputRef.current?.click();
+  }
+
+  function onFileChosen(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = String(ev.target?.result || "");
+      try {
+        localStorage.setItem(LS_KEY, dataUrl);
+      } catch {
+        /* localStorage might be full — silently ignore */
+      }
+      setUserImg(dataUrl);
+      // Reset error counters in case we'd already fallen through
+      setSrcIdx(0);
+      setUsingDicebear(false);
+      setUsingMascot(false);
+    };
+    reader.readAsDataURL(file);
+    // Reset input so picking the same file again still triggers change.
+    e.target.value = "";
+  }
+
+  function clearPhoto() {
+    try {
+      localStorage.removeItem(LS_KEY);
+    } catch {
+      /* ignore */
+    }
+    setUserImg(null);
+    setSrcIdx(0);
+    setUsingDicebear(false);
+    setUsingMascot(false);
+  }
+
+  const portraitSrc = userImg
+    ? userImg
+    : usingMascot
+      ? mascotImg
+      : usingDicebear
+        ? DICEBEAR_URL(teacherSeed)
+        : TEACHER_PATHS[srcIdx];
 
   const dim = {
     xxl: "w-72 h-72",
@@ -139,6 +202,36 @@ export default function TalkingAvatar({
           <div className="text-[10px] text-white/80 uppercase tracking-wide">
             PassPoint AI · Built for Africa
           </div>
+        </div>
+      )}
+
+      {/* Change-photo control. Only shown where it makes sense (presenter
+          column), keeps the avatar usable as a read-only thumbnail elsewhere. */}
+      {allowChange && (
+        <div className="mt-1 flex items-center gap-2 text-[11px]">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={onFileChosen}
+            className="hidden"
+          />
+          <button
+            onClick={pickFile}
+            className="bg-ink-100 hover:bg-brand-blue hover:text-white text-ink-700 rounded-full px-3 py-1 font-semibold transition-colors"
+            title="Upload a photo from your device"
+          >
+            📷 Change photo
+          </button>
+          {userImg && (
+            <button
+              onClick={clearPhoto}
+              className="text-ink-500 hover:text-ink-900 underline"
+              title="Use the default photo"
+            >
+              reset
+            </button>
+          )}
         </div>
       )}
 

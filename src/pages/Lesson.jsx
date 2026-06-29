@@ -188,6 +188,7 @@ export default function Lesson() {
             size="xl"
             presenterName="Mr. Adebayo · AI Tutor"
             showNamePlate
+            allowChange
           />
 
           {/* Live status under the avatar */}
