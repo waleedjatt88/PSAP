@@ -30,21 +30,35 @@ export default function useTeleprompter(sentences) {
     sentencesRef.current = sentences;
   }, [sentences]);
 
+  // Voice selection — prefer Nigerian English first, then UK/US natural voices.
+  // Microsoft Edge ships "Microsoft Ezinne (en-NG)" and "Microsoft Abeo (en-NG)"
+  // which sound noticeably more natural to a Nigerian student.
   const pickVoice = useCallback(() => {
     if (!supported) return null;
     const voices = window.speechSynthesis.getVoices();
     if (!voices.length) return null;
     return (
+      // 1. Nigerian English, any name
+      voices.find((v) => /en[-_]?NG/i.test(v.lang)) ||
+      // 2. African accent fallback (some browsers expose en-ZA)
+      voices.find((v) => /en[-_]?(ZA|KE|GH)/i.test(v.lang)) ||
+      // 3. UK English natural voice
       voices.find(
         (v) =>
-          /en[-_]?(US|GB|NG)/i.test(v.lang) &&
-          /female|samantha|jenny|aria/i.test(v.name),
+          /en[-_]?GB/i.test(v.lang) &&
+          /natural|aria|libby|sonia|maisie|hazel/i.test(v.name),
       ) ||
+      // 4. US natural female voice
       voices.find(
         (v) =>
-          /en[-_]?(US|GB|NG)/i.test(v.lang) &&
-          /google|microsoft|natural/i.test(v.name),
+          /en[-_]?US/i.test(v.lang) &&
+          /natural|jenny|aria|samantha|female/i.test(v.name),
       ) ||
+      // 5. Any English Google/Microsoft voice
+      voices.find(
+        (v) => /^en/i.test(v.lang) && /google|microsoft/i.test(v.name),
+      ) ||
+      // 6. Any English voice
       voices.find((v) => /^en/i.test(v.lang)) ||
       voices[0]
     );

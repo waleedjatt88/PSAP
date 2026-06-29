@@ -41,3 +41,26 @@ body,
   transform-origin: bottom;
   animation: wave 0.9s ease-in-out infinite;
 }
+
+/* Talking-avatar animations */
+@keyframes avatar-bob {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50%      { transform: translateY(-6px) rotate(1deg); }
+}
+@keyframes avatar-bob-fast {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%      { transform: translateY(-4px) scale(1.02); }
+}
+@keyframes avatar-pulse {
+  0%, 100% { transform: scale(1);   opacity: 0.5; }
+  50%      { transform: scale(1.08); opacity: 0.8; }
+}
+
+/* Slide transition (PowerPoint-style) */
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.slide-enter {
+  animation: slide-in 0.35s ease-out;
+}
