@@ -271,6 +271,68 @@ const livingThingsLesson = {
       ],
     },
   ],
+
+  // Official quiz bank — exact questions from the client-supplied lesson
+  // notes. The AI is instructed (in lib/provider.js) to use THESE questions
+  // verbatim when the student asks to be quizzed.
+  quiz: {
+    quickQuiz: [
+      { q: "What is a living thing?", a: "An organism that has life and carries out life processes.", marks: 2 },
+      { q: "Mention any four characteristics of living things.", a: "Any four from: Movement, Respiration, Sensitivity, Growth, Reproduction, Excretion, Nutrition.", marks: 4 },
+      { q: "Give three examples of non-living things.", a: "Any three from: stones, chairs, tables, books, cars, bottles, pencils.", marks: 3 },
+      { q: "Why is growth considered evidence that something is living?", a: "Because only living things naturally increase in size and develop over time.", marks: 2 },
+      { q: "Name the acronym used to remember the characteristics of living things.", a: "MRS GREN", marks: 1 },
+    ],
+    mcqs: [
+      {
+        q: "Which of the following is a living thing?",
+        options: { A: "Stone", B: "Chair", C: "Goat", D: "Bottle" },
+        answer: "C",
+        marks: 2,
+      },
+      {
+        q: "Which characteristic of living things involves producing young ones?",
+        options: { A: "Growth", B: "Respiration", C: "Reproduction", D: "Excretion" },
+        answer: "C",
+        marks: 2,
+      },
+      {
+        q: "Which of the following is NOT a characteristic of living things?",
+        options: {
+          A: "Nutrition",
+          B: "Reproduction",
+          C: "Photosynthesis (for all living things)",
+          D: "Excretion",
+        },
+        answer: "C",
+        marks: 2,
+      },
+    ],
+    theory: [
+      {
+        q: "Define living things and list any five characteristics of living organisms.",
+        marks: 6,
+      },
+      {
+        q: "Differentiate between living and non-living things using at least four points, and give three examples of each.",
+        marks: 8,
+      },
+    ],
+    assignment: [
+      {
+        q: "List seven characteristics of living things and explain any three.",
+        marks: 7,
+      },
+      {
+        q: "Classify the following as living or non-living: Bicycle, Dog, Mushroom, Tree, Rock, Butterfly, Notebook, Fish.",
+        marks: 8,
+      },
+      {
+        q: "State five ways in which living things are important to human beings and the environment.",
+        marks: 5,
+      },
+    ],
+  },
 };
 
 export default livingThingsLesson;

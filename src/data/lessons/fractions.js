@@ -205,6 +205,64 @@ const fractionsLesson = {
       ],
     },
   ],
+
+  // Official quiz bank — exact questions from the client-supplied lesson
+  // notes. The AI is instructed (in lib/provider.js) to use THESE questions
+  // verbatim when the student asks to be quizzed, instead of making up new
+  // questions. The marks/answers are part of the official content.
+  quiz: {
+    quickQuiz: [
+      { q: "What is the numerator in the fraction 5/9?", a: "5", marks: 2 },
+      { q: "Which type of fraction is 8/5?", a: "Improper fraction", marks: 2 },
+      { q: "Convert 7/3 into a mixed fraction.", a: "2 1/3", marks: 2 },
+      { q: "Convert 3 2/5 into an improper fraction.", a: "17/5", marks: 2 },
+      { q: "Solve: 2/5 + 1/5.", a: "3/5", marks: 2 },
+    ],
+    mcqs: [
+      {
+        q: "In the fraction 4/7, the denominator is:",
+        options: { A: "4", B: "7", C: "11", D: "3" },
+        answer: "B",
+        marks: 2,
+      },
+      {
+        q: "Which of the following is a proper fraction?",
+        options: { A: "9/4", B: "7/7", C: "3/8", D: "5/2" },
+        answer: "C",
+        marks: 2,
+      },
+      {
+        q: "Convert 2 1/3 to an improper fraction:",
+        options: { A: "5/3", B: "6/3", C: "7/3", D: "8/3" },
+        answer: "C",
+        marks: 2,
+      },
+    ],
+    theory: [
+      {
+        q: "Define a fraction and explain the difference between the numerator and denominator. Give two examples.",
+        marks: 5,
+      },
+      {
+        q: "(a) Convert 11/4 into a mixed fraction. (b) Calculate: (i) 3/8 + 2/8 (ii) 5/6 − 1/6",
+        marks: 6,
+      },
+    ],
+    assignment: [
+      {
+        q: "Classify each as proper, improper, or mixed: 5/9, 12/7, 3 4/5, 8/8",
+        marks: 4,
+      },
+      {
+        q: "Convert: 13/5 to a mixed fraction; 4 2/7 to an improper fraction.",
+        marks: 4,
+      },
+      {
+        q: "Solve: 4/9 + 2/9; 7/10 − 3/10; 1/3 + 1/6",
+        marks: 6,
+      },
+    ],
+  },
 };
 
 export default fractionsLesson;
