@@ -23,7 +23,7 @@ const TEACHER_PATHS = [
 const DICEBEAR_URL = (seed) =>
   `https://api.dicebear.com/9.x/personas/svg?seed=${encodeURIComponent(
     seed,
-  )}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf&size=300`;
+  )}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf&size=320`;
 
 const DEFAULT_SEED = "Mr+Adebayo+Teacher";
 
@@ -31,7 +31,9 @@ export default function TalkingAvatar({
   speaking = false,
   size = "lg",
   caption,
+  presenterName = "AI Teacher",
   teacherSeed = DEFAULT_SEED,
+  showNamePlate = false,
 }) {
   // `srcIdx` walks the TEACHER_PATHS array; once exhausted we fall through
   // to DiceBear, and finally to the bundled robot mascot.
@@ -56,6 +58,7 @@ export default function TalkingAvatar({
       : TEACHER_PATHS[srcIdx];
 
   const dim = {
+    xxl: "w-72 h-72",
     xl: "w-56 h-56",
     lg: "w-44 h-44",
     md: "w-32 h-32",
@@ -70,16 +73,16 @@ export default function TalkingAvatar({
           className={[
             "absolute inset-0 rounded-full",
             speaking
-              ? "bg-brand-blue/20 animate-[avatar-pulse_1.6s_ease-in-out_infinite]"
+              ? "bg-brand-blue/30 animate-[avatar-pulse_1.6s_ease-in-out_infinite]"
               : "bg-brand-blue/5",
           ].join(" ")}
         />
-        {/* Inner halo */}
+        {/* Inner gradient halo */}
         <div
           className={[
             "absolute inset-2 rounded-full bg-gradient-to-br",
             speaking
-              ? "from-blue-200 to-orange-200"
+              ? "from-blue-200 via-orange-100 to-orange-200"
               : "from-blue-100 to-orange-100",
           ].join(" ")}
         />
@@ -89,25 +92,25 @@ export default function TalkingAvatar({
           alt="AI Teacher"
           onError={handleError}
           className={[
-            "relative w-[92%] h-[92%] rounded-full object-cover drop-shadow-lg ring-4 ring-white bg-white",
+            "relative w-[92%] h-[92%] rounded-full object-cover drop-shadow-xl ring-4 ring-white bg-white",
             speaking
               ? "animate-[avatar-bob-fast_0.9s_ease-in-out_infinite]"
               : "animate-[avatar-bob_4s_ease-in-out_infinite]",
           ].join(" ")}
           draggable={false}
         />
-        {/* Speaking pill */}
+        {/* Speaking pill — bottom of the avatar circle */}
         <div
           className={[
-            "absolute -bottom-1 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-[10px] font-semibold flex items-center gap-1 shadow-card whitespace-nowrap z-10",
+            "absolute -bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5 shadow-lg whitespace-nowrap z-10",
             speaking
               ? "bg-emerald-500 text-white"
-              : "bg-white text-ink-500 border border-ink-100",
+              : "bg-white text-ink-700 border border-ink-100",
           ].join(" ")}
         >
           <span
             className={[
-              "w-1.5 h-1.5 rounded-full",
+              "w-2 h-2 rounded-full",
               speaking ? "bg-white animate-ping" : "bg-ink-300",
             ].join(" ")}
           />
@@ -115,7 +118,18 @@ export default function TalkingAvatar({
         </div>
       </div>
 
+      {/* Audio wave bars */}
       <WaveBars active={speaking} />
+
+      {/* Name plate — TV-presenter style chyron */}
+      {showNamePlate && (
+        <div className="mt-1 bg-gradient-to-r from-brand-blue to-brand-blue-light text-white rounded-lg shadow-card px-4 py-2 text-center min-w-[12rem]">
+          <div className="text-sm font-bold">{presenterName}</div>
+          <div className="text-[10px] text-white/80 uppercase tracking-wide">
+            PassPoint AI · Built for Africa
+          </div>
+        </div>
+      )}
 
       {caption && (
         <div className="text-xs text-ink-500 text-center max-w-[14rem]">
