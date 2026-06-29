@@ -5,6 +5,8 @@ import {
   getProviderConfig,
 } from "../lib/provider.js";
 
+
+
 // Canonical refusal returned whenever the AI marks a question as
 // out-of-scope of the supplied lesson content. Defined here, on the
 // server, so the model cannot bypass it.
