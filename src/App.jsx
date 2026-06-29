@@ -10,6 +10,7 @@ import Progress from "./pages/Progress";
 import Bookmarks from "./pages/Bookmarks";
 import Accomplishments from "./pages/Accomplishments";
 import Settings from "./pages/Settings";
+import Homework from "./pages/Homework";
 import "./App.css";
 
 export default function App() {
@@ -34,6 +35,7 @@ export default function App() {
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/subjects" element={<Subjects />} />
+          <Route path="/homework" element={<Homework />} />
           <Route path="/progress" element={<Progress />} />
           <Route path="/bookmarks" element={<Bookmarks />} />
           <Route path="/accomplishments" element={<Accomplishments />} />

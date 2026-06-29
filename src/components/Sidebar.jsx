@@ -8,12 +8,14 @@ import {
   TrophyIcon,
   SettingsIcon,
   CloseIcon,
+  CheckIcon,
 } from "./icons";
 import promoImg from "../assets/girl.png";
 
 const items = [
   { to: "/dashboard", label: "Dashboard", icon: HomeIcon },
   { to: "/subjects", label: "Subjects", icon: BookIcon },
+  { to: "/homework", label: "Mark Homework", icon: CheckIcon },
   { to: "/progress", label: "Progress", icon: ChartIcon },
   { to: "/bookmarks", label: "Bookmarks", icon: BookmarkIcon },
   { to: "/accomplishments", label: "Accomplishments", icon: TrophyIcon },
