@@ -9,6 +9,7 @@ import {
 } from "../components/icons";
 import AskAIModal from "../components/AskAIModal";
 import useTeleprompter from "../hooks/useTeleprompter";
+import useSpeechRecognition from "../hooks/useSpeechRecognition";
 import { findSubject, findTopic, lessonHref } from "../data/curriculum";
 import { getLesson, flattenLesson } from "../data/lessons/index.js";
 import mascotImg from "../assets/AI_Lesson.png";
@@ -39,6 +40,27 @@ export default function Lesson() {
 
   const tele = useTeleprompter(sentences);
   const [askOpen, setAskOpen] = useState(false);
+
+  // Voice-command recognition: listens continuously for short keywords
+  // when the student toggles it on. Keywords trigger lesson control
+  // without needing to touch the keyboard.
+  const voiceCmd = useSpeechRecognition({
+    continuous: true,
+    interimResults: true,
+    onCommand: (lower) => {
+      if (!lower) return;
+      // Match the LAST few words so a long sentence doesn't keep matching.
+      const tail = lower.slice(-40);
+      if (/\b(i have a question|ask (a |the )?question|wait, question)\b/.test(tail)) {
+        if (tele.state === "playing") tele.pause();
+        setAskOpen(true);
+      } else if (/\b(pause|stop|wait|hold on)\b/.test(tail)) {
+        if (tele.state === "playing") tele.pause();
+      } else if (/\b(continue|resume|go on|carry on|keep going|play)\b/.test(tail)) {
+        if (tele.state === "paused" || tele.state === "idle") tele.play();
+      }
+    },
+  });
 
   // Auto-scroll the currently-highlighted sentence into view.
   const sentenceRefs = useRef([]);
@@ -276,6 +298,7 @@ export default function Lesson() {
         onAskAI={openAskAI}
         totalSentences={flat.length}
         supported={tele.supported}
+        voiceCmd={voiceCmd}
       />
 
       {/* Ask AI overlay */}
@@ -290,12 +313,12 @@ export default function Lesson() {
   );
 }
 
-function ControlBar({ tele, onAskAI, totalSentences, supported }) {
+function ControlBar({ tele, onAskAI, totalSentences, supported, voiceCmd }) {
   const isPlaying = tele.state === "playing";
   const isPaused = tele.state === "paused";
 
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[min(95vw,40rem)]">
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[min(95vw,44rem)]">
       <div className="bg-white shadow-2xl border border-ink-100 rounded-2xl p-2 flex items-center gap-2">
         {!supported && (
           <div className="px-3 py-2 text-xs text-amber-700">
@@ -355,6 +378,29 @@ function ControlBar({ tele, onAskAI, totalSentences, supported }) {
           </button>
         )}
 
+        {/* Voice-command toggle: when on, the student can say
+            "pause", "continue", or "I have a question" instead of clicking. */}
+        {voiceCmd?.supported && (
+          <button
+            onClick={() =>
+              voiceCmd.listening ? voiceCmd.stop() : voiceCmd.start()
+            }
+            className={[
+              "ml-auto sm:ml-0 w-10 h-10 rounded-full flex items-center justify-center transition-colors",
+              voiceCmd.listening
+                ? "bg-red-500 text-white animate-pulse"
+                : "bg-ink-100 text-ink-700 hover:bg-brand-blue hover:text-white",
+            ].join(" ")}
+            title={
+              voiceCmd.listening
+                ? "Voice commands ON — say \"pause\", \"continue\", or \"I have a question\""
+                : "Turn on voice commands"
+            }
+          >
+            🎙
+          </button>
+        )}
+
         <button
           onClick={onAskAI}
           className="ml-auto flex items-center gap-2 bg-brand-orange hover:bg-brand-orange-dark text-white text-sm font-semibold px-4 py-2.5 rounded-full shadow-card"
@@ -364,6 +410,13 @@ function ControlBar({ tele, onAskAI, totalSentences, supported }) {
           <span className="hidden sm:inline">Ask AI</span>
         </button>
       </div>
+
+      {/* Live transcript bubble while voice commands are listening */}
+      {voiceCmd?.listening && voiceCmd.transcript && (
+        <div className="mt-2 mx-auto max-w-md bg-ink-900/90 text-white text-xs rounded-full px-3 py-1.5 text-center shadow-card">
+          🎙 Heard: "{voiceCmd.transcript}"
+        </div>
+      )}
     </div>
   );
 }

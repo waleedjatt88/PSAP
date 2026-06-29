@@ -31,9 +31,9 @@ export const SUBJECTS = [
     progress: 0,
     topics: [
       {
-        title: "Living and Non-Living Things",
+        title: "Living Things",
         lessonId: "jss1-basicscience-living-things",
-        description: "Tell living from non-living, and the seven life processes",
+        description: "Definition, characteristics (MRS GREN), and major groups",
       },
     ],
   },

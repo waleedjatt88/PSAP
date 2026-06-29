@@ -1,23 +1,20 @@
-// JSS 1 Basic Science — Living and Non-Living Things
-// PLACEHOLDER LESSON — the client has indicated they will supply the
-// official content for this topic. Replace the `sections` array below
-// with the supplied content; everything else (teleprompter, AI Q&A,
-// highlighting) will work without code changes.
+// JSS 1 Basic Science — Living Things
+// Source: official lesson notes supplied by the client.
 
 const livingThingsLesson = {
   id: "jss1-basicscience-living-things",
   subjectId: "basic-science",
   subjectName: "Basic Science",
   classLevel: "JSS 1",
-  topic: "Living and Non-Living Things",
-  title: "Living and Non-Living Things",
-  durationMinutes: 10,
-  // Banner shown above the lesson to flag that this is placeholder content.
-  isPlaceholder: true,
+  topic: "Living Things",
+  title: "Living Things",
+  durationMinutes: 15,
   objectives: [
-    "Tell the difference between living and non-living things",
-    "List the characteristics of living things",
-    "Give examples of both groups",
+    "Define living things",
+    "Distinguish between living and non-living things",
+    "State the characteristics of living things",
+    "Give examples of living things in the environment",
+    "Classify living things into major groups",
   ],
   sections: [
     {
@@ -25,61 +22,129 @@ const livingThingsLesson = {
       heading: "Welcome",
       sentences: [
         "Hello students, and welcome to today's Basic Science lesson.",
-        "Today we are going to learn about living things and non-living things.",
-        "Please listen carefully, and pause me at any time if you have a question.",
+        "Today we will learn about living things.",
+        "Every day, we see many objects around us.",
+        "Some of them move, grow, breathe, and reproduce, while others do not.",
+        "For example, a boy grows taller as he gets older.",
+        "A mango tree grows from a seed into a large tree.",
+        "A puppy grows into a dog.",
+        "But a table, a stone, or a chair does not grow or reproduce.",
+        "This difference helps us understand the concept of living and non-living things.",
       ],
     },
     {
-      id: "what-is-living",
-      heading: "What Is a Living Thing?",
+      id: "definition",
+      heading: "Definition of Living Things",
       sentences: [
-        "A living thing is anything that has life inside it.",
-        "Living things can grow, move, breathe, feed, and reproduce.",
-        "Some examples of living things are humans, dogs, trees, fish, and insects.",
+        "Living things are organisms that have life.",
+        "They carry out life processes such as feeding, breathing, growing, reproducing, moving, responding to changes in their environment, and removing waste products.",
+        "Examples of living things include human beings, dogs, cats, birds, fish, trees, grass, insects, and bacteria.",
       ],
     },
     {
-      id: "characteristics",
-      heading: "Characteristics of Living Things",
+      id: "non-living",
+      heading: "Non-Living Things",
       sentences: [
-        "All living things share seven main characteristics, which scientists call life processes.",
-        "These are: movement, respiration, sensitivity, nutrition, excretion, reproduction, and growth.",
-        "Movement means the ability to change position. Animals walk, fish swim, and plants slowly turn toward the sun.",
-        "Respiration means taking in oxygen and giving out carbon dioxide to release energy from food.",
-        "Sensitivity means reacting to changes around us, like pulling your hand away from something hot.",
-        "Nutrition is the way living things take in food to grow and stay healthy.",
-        "Excretion is how living things get rid of waste products from their bodies.",
-        "Reproduction is how living things produce new living things like themselves.",
-        "And growth means increasing in size, weight, or number of cells over time.",
+        "Non-living things are objects that do not have life.",
+        "They do not perform the life processes.",
+        "Examples include stones, chairs, tables, books, cars, bottles, and pencils.",
+        "Although some non-living things, such as cars, can move, they only move when powered or controlled by something else.",
+        "They do not grow, reproduce, or breathe on their own.",
       ],
     },
     {
-      id: "what-is-non-living",
-      heading: "What Is a Non-Living Thing?",
+      id: "mrs-gren",
+      heading: "Characteristics: MRS GREN",
       sentences: [
-        "A non-living thing is anything that does not have life.",
-        "Non-living things do not grow, do not breathe, do not feed, and do not reproduce.",
-        "Some examples of non-living things are stones, chairs, water, books, and metal spoons.",
+        "Scientists often remember the characteristics of living things with the acronym MRS GREN.",
+        "MRS GREN stands for Movement, Respiration, Sensitivity, Growth, Reproduction, Excretion, and Nutrition.",
+        "Let us go through each one.",
       ],
     },
     {
-      id: "comparison",
-      heading: "Living Versus Non-Living",
+      id: "movement",
+      heading: "Movement",
       sentences: [
-        "The easiest way to tell living and non-living things apart is to look for the life processes.",
-        "If something can grow, move on its own, breathe, feed, or reproduce, then it is a living thing.",
-        "If it cannot do any of these, then it is a non-living thing.",
-        "Be careful, because some non-living things can move, like cars, but they only move because a living thing makes them move.",
+        "First, Movement.",
+        "Living things can move by themselves, or move parts of their bodies.",
+        "A bird flies, a fish swims, and even plants slowly bend toward sunlight.",
+      ],
+    },
+    {
+      id: "respiration",
+      heading: "Respiration",
+      sentences: [
+        "Second, Respiration.",
+        "Living things release energy from food through respiration.",
+        "Humans breathe using lungs, fish use gills, and plants also respire.",
+      ],
+    },
+    {
+      id: "sensitivity",
+      heading: "Sensitivity",
+      sentences: [
+        "Third, Sensitivity, also called response to stimuli.",
+        "Living things respond to changes in their environment.",
+        "For example, you pull your hand away from a hot object.",
+        "And some plants fold their leaves when touched.",
+      ],
+    },
+    {
+      id: "growth",
+      heading: "Growth",
+      sentences: [
+        "Fourth, Growth.",
+        "Living things increase in size and develop over time.",
+        "A baby grows into an adult, and a seed grows into a plant.",
+      ],
+    },
+    {
+      id: "reproduction",
+      heading: "Reproduction",
+      sentences: [
+        "Fifth, Reproduction.",
+        "Living things produce young ones, or offspring, of their own kind.",
+        "Birds lay eggs, mammals give birth to young ones, and plants produce seeds.",
+      ],
+    },
+    {
+      id: "excretion",
+      heading: "Excretion",
+      sentences: [
+        "Sixth, Excretion.",
+        "Living things remove waste products from their bodies.",
+        "Humans produce urine and sweat, and plants release some wastes through their leaves.",
+      ],
+    },
+    {
+      id: "nutrition",
+      heading: "Nutrition",
+      sentences: [
+        "Finally, Nutrition.",
+        "Living things need food, or nutrients, to survive and to obtain energy.",
+        "Humans eat food, cows graze on grass, and green plants make their own food through photosynthesis.",
+      ],
+    },
+    {
+      id: "groups",
+      heading: "Major Groups of Living Things",
+      sentences: [
+        "Living things are classified into three major groups: plants, animals, and microorganisms.",
+        "Plants make their own food using sunlight, water, and carbon dioxide. Examples are the mango tree, maize, grass, hibiscus, and palm tree.",
+        "Animals cannot make their own food. They depend on plants or other animals for nourishment. Examples are lions, goats, cows, chickens, fish, and human beings.",
+        "Microorganisms are tiny living things that can only be seen clearly with special instruments such as a microscope. Examples are bacteria, some fungi, and protozoa.",
       ],
     },
     {
       id: "summary",
       heading: "Summary",
       sentences: [
-        "Let us review what we have learned today.",
-        "Living things have life, and they show the seven life processes.",
-        "Non-living things do not have life and do not show these processes.",
-        "Well done for following along. You may ask me any question about today's lesson.",
+        "Let us summarize today's lesson.",
+        "Living things are organisms that have life and carry out life processes.",
+        "They include plants, animals, and microorganisms.",
+        "Non-living things do not perform these life processes.",
+        "We use the acronym MRS GREN to remember the seven characteristics of living things.",
+        "Well done for following along. You may try the practice questions, or pause me to ask any question.",
       ],
     },
   ],
