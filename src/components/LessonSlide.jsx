@@ -1,5 +1,24 @@
 import LessonVisual from "./LessonVisual";
 
+// For worked-example visuals, figure out how many steps should be visible
+// based on the AI's current sentence. If the lesson author supplied a
+// `revealAtSentence` array, use that as a lookup; otherwise distribute
+// the steps evenly across the section's sentences.
+function computeRevealStep(section, sectionStartIdx, currentIdx) {
+  if (section.visual?.type !== "worked-example") return 0;
+  const localIdx = currentIdx >= sectionStartIdx ? currentIdx - sectionStartIdx : -1;
+  if (localIdx < 0) return 0; // hasn't started this section yet
+  const stepsCount = section.visual.steps?.length || 0;
+  const mapping = section.visual.revealAtSentence;
+  if (Array.isArray(mapping) && mapping.length > 0) {
+    if (localIdx >= mapping.length) return stepsCount + 1; // fully done — also show final
+    return mapping[localIdx];
+  }
+  // Default: evenly distribute steps across sentences.
+  const total = section.sentences?.length || 1;
+  return Math.min(stepsCount, Math.floor(((localIdx + 1) / total) * stepsCount));
+}
+
 // Full-screen presentation slide. Renders one lesson section like a
 // PowerPoint slide: branded header bar, big heading, side-by-side text +
 // topic-specific visual. The active sentence is highlighted teleprompter
@@ -106,11 +125,16 @@ export default function LessonSlide({
         </div>
 
         {/* Topic-specific visual — plain white, no border. Content scales
-            to fit within its column. */}
+            to fit within its column. For worked-example visuals, we
+            compute how many steps to reveal based on which sentence the
+            AI is reading right now (so the board fills in step-by-step). */}
         {hasVisual && (
           <div className="flex items-center justify-center bg-white py-2">
-            <div className="w-full max-w-sm">
-              <LessonVisual visual={section.visual} />
+            <div className="w-full max-w-md">
+              <LessonVisual
+                visual={section.visual}
+                revealStep={computeRevealStep(section, sectionStartIdx, currentIdx)}
+              />
             </div>
           </div>
         )}

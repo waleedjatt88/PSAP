@@ -3,16 +3,16 @@
 // one of these renderers. All visuals enter with a soft scale animation
 // and idle-animate (float / pulse) so the slide feels alive.
 
-export default function LessonVisual({ visual }) {
+export default function LessonVisual({ visual, revealStep }) {
   if (!visual) return null;
   return (
     <div key={JSON.stringify(visual)} className="w-full animate-[visual-pop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]">
-      {renderInner(visual)}
+      {renderInner(visual, revealStep)}
     </div>
   );
 }
 
-function renderInner(visual) {
+function renderInner(visual, revealStep) {
   switch (visual.type) {
     case "pie":
       return <PieVisual num={visual.num} den={visual.den} label={visual.label} />;
@@ -22,6 +22,15 @@ function renderInner(visual) {
       return <TwoPiesVisual a={visual.a} b={visual.b} note={visual.note} />;
     case "math":
       return <MathVisual expression={visual.expression} steps={visual.steps} />;
+    case "worked-example":
+      return (
+        <WorkedExampleVisual
+          problem={visual.problem}
+          steps={visual.steps}
+          final={visual.final}
+          revealStep={revealStep}
+        />
+      );
     case "icon-grid":
       return <IconGridVisual items={visual.items} columns={visual.columns} />;
     case "acronym":
@@ -31,6 +40,78 @@ function renderInner(visual) {
     default:
       return null;
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Worked example — a math problem solved step-by-step on a "chalkboard".
+// As the AI narrates each step, the matching row reveals (animated). The
+// parent component passes `revealStep` (1-based count of how many steps
+// should be visible right now).
+
+function WorkedExampleVisual({ problem, steps = [], final, revealStep = 0 }) {
+  const visibleCount = Math.min(revealStep, steps.length);
+  return (
+    <div className="bg-slate-900 text-white rounded-2xl p-5 shadow-2xl border-2 border-slate-700 font-mono text-base lg:text-lg w-full">
+      <div className="text-[10px] uppercase tracking-[0.2em] text-emerald-400 font-bold mb-2">
+        Worked Example
+      </div>
+      <div className="text-xl lg:text-2xl text-white font-bold mb-4 border-b border-slate-700 pb-3">
+        {problem}
+      </div>
+      <ol className="space-y-2.5">
+        {steps.map((s, i) => {
+          const isVisible = i < visibleCount;
+          const isCurrent = i === visibleCount - 1;
+          return (
+            <li
+              key={i}
+              className={[
+                "flex items-start gap-3 transition-all duration-500",
+                isVisible
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 translate-y-2",
+                isCurrent
+                  ? "bg-yellow-300/10 ring-1 ring-yellow-300/40 rounded-lg px-2 py-1 -mx-2"
+                  : "",
+              ].join(" ")}
+              style={isVisible ? { animation: "step-in 0.4s ease-out" } : {}}
+            >
+              <span
+                className={[
+                  "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5",
+                  isCurrent
+                    ? "bg-yellow-300 text-slate-900"
+                    : "bg-slate-700 text-slate-200",
+                ].join(" ")}
+              >
+                {i + 1}
+              </span>
+              <div className="min-w-0">
+                {s.label && (
+                  <div className="text-[11px] text-slate-400 uppercase tracking-wide mb-0.5">
+                    {s.label}
+                  </div>
+                )}
+                <div className="text-base lg:text-lg text-white whitespace-pre-wrap break-words">
+                  {s.text}
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+      {final && visibleCount >= steps.length && (
+        <div className="mt-4 pt-3 border-t border-slate-700 flex items-center justify-between gap-3 animate-[item-pop_0.5s_ease-out]">
+          <span className="text-[11px] uppercase tracking-wide text-emerald-400 font-bold">
+            Answer
+          </span>
+          <span className="text-2xl lg:text-3xl font-extrabold text-emerald-300 tabular-nums">
+            {final}
+          </span>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────

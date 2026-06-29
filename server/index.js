@@ -6,6 +6,8 @@ import dotenv from "dotenv";
 import healthHandler from "../api/health.js";
 import chatHandler from "../api/chat.js";
 import lessonHandler from "../api/lesson.js";
+import gradeHandler from "../api/grade.js";
+import reportHandler from "../api/report.js";
 
 dotenv.config();
 
@@ -19,6 +21,8 @@ app.use(express.json({ limit: "2mb" }));
 app.get("/api/health", (req, res) => healthHandler(req, res));
 app.post("/api/chat", (req, res) => chatHandler(req, res));
 app.post("/api/lesson", (req, res) => lessonHandler(req, res));
+app.post("/api/grade", (req, res) => gradeHandler(req, res));
+app.post("/api/report", (req, res) => reportHandler(req, res));
 
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {

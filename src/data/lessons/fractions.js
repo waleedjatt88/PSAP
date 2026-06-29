@@ -101,15 +101,23 @@ const fractionsLesson = {
     {
       id: "convert-to-mixed",
       heading: "Converting Improper to Mixed",
+      // Worked-example visual: each step reveals on the "board" as the
+      // AI narrates the matching sentence. `stepIndices` maps sentence
+      // positions in this section to step numbers (1-based).
       visual: {
-        type: "math",
-        expression: "9/4 = 2¼",
+        type: "worked-example",
+        problem: "Convert 9/4 into a mixed fraction",
         steps: [
-          "Divide 9 ÷ 4 = 2 remainder 1",
-          "Quotient (2) becomes the whole number",
-          "Remainder (1) becomes the new numerator",
-          "Keep the denominator (4)",
+          { label: "Step 1", text: "Divide the numerator by the denominator:\n9 ÷ 4 = 2 remainder 1" },
+          { label: "Step 2", text: "Quotient (2) becomes the whole number." },
+          { label: "Step 3", text: "Remainder (1) becomes the new numerator." },
+          { label: "Step 4", text: "Keep the same denominator (4)." },
         ],
+        final: "9/4 = 2 1/4",
+        // 0 → no steps visible. Sentence indices that reveal each step:
+        //   intro sentences (0-4): nothing revealed yet
+        //   "For example..." (5): all 4 steps + final answer
+        revealAtSentence: [0, 0, 0, 0, 0, 4, 4],
       },
       sentences: [
         "To convert an improper fraction to a mixed fraction, follow these steps.",
