@@ -132,11 +132,14 @@ export default function AskAIModal({
     window.speechSynthesis.speak(u);
   }
 
-  // Validate input — voice recognition often returns just punctuation
-  // ("::", ".", " ") when audio is unclear. Require at least 2 letters.
+  // Validate input. Voice recognition occasionally returns just
+  // punctuation ("::", ".", " ") when audio is unclear — those we reject.
+  // BUT we must still accept short answers like "9", "B", "yes" because
+  // those are valid replies to quiz questions. So the rule is: at least
+  // one word character (letter or digit).
   function isJunk(text) {
     if (!text) return true;
-    return !/[a-zA-Z]{2,}/.test(text);
+    return !/\w/.test(text);
   }
 
   async function send(content) {
