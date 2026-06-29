@@ -8,9 +8,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 // because `onboundary` is unreliable across browsers — especially after
 // pause/resume. Speaking one sentence per utterance gives us perfect
 // per-sentence sync and crisp pause behavior.
-export default function useTeleprompter(sentences) {
+export default function useTeleprompter(sentences, options = {}) {
   const supported =
     typeof window !== "undefined" && "speechSynthesis" in window;
+
+  const { preferredGender = "any" } = options;
 
   const [state, setState] = useState("idle"); // 'idle' | 'playing' | 'paused'
   const [currentIdx, setCurrentIdx] = useState(-1);
@@ -30,39 +32,48 @@ export default function useTeleprompter(sentences) {
     sentencesRef.current = sentences;
   }, [sentences]);
 
-  // Voice selection — prefer Nigerian English first, then UK/US natural voices.
-  // Microsoft Edge ships "Microsoft Ezinne (en-NG)" and "Microsoft Abeo (en-NG)"
-  // which sound noticeably more natural to a Nigerian student.
+  // Voice selection — prefer Nigerian English first, then UK/US natural
+  // voices. When `preferredGender` is "male" or "female", voices whose
+  // name matches typical gender keywords are preferred at each tier.
+  // Microsoft Edge ships "Microsoft Ezinne (en-NG, female)" and
+  // "Microsoft Abeo (en-NG, male)" which are perfect for this.
   const pickVoice = useCallback(() => {
     if (!supported) return null;
     const voices = window.speechSynthesis.getVoices();
     if (!voices.length) return null;
+
+    const isFemale = preferredGender === "female";
+    const isMale = preferredGender === "male";
+    const femaleKeywords =
+      /female|ezinne|aria|jenny|libby|sonia|maisie|hazel|samantha|zira|salma|natasha|emma|olivia/i;
+    const maleKeywords =
+      /male|abeo|guy|davis|david|ryan|james|brian|mark|tony|george|daniel|william/i;
+    const matchesGender = (v) => {
+      if (isFemale)
+        return femaleKeywords.test(v.name) && !/male/i.test(v.name.replace(/female/i, ""));
+      if (isMale)
+        return maleKeywords.test(v.name) && !femaleKeywords.test(v.name);
+      return true;
+    };
+
+    // Helper: at each language tier, prefer a gender match, then any.
+    const inTier = (langPattern) => {
+      const tier = voices.filter((v) => langPattern.test(v.lang));
+      if (!tier.length) return null;
+      const matched = tier.find(matchesGender);
+      return matched || (preferredGender === "any" ? tier[0] : null);
+    };
+
     return (
-      // 1. Nigerian English, any name
-      voices.find((v) => /en[-_]?NG/i.test(v.lang)) ||
-      // 2. African accent fallback (some browsers expose en-ZA)
-      voices.find((v) => /en[-_]?(ZA|KE|GH)/i.test(v.lang)) ||
-      // 3. UK English natural voice
-      voices.find(
-        (v) =>
-          /en[-_]?GB/i.test(v.lang) &&
-          /natural|aria|libby|sonia|maisie|hazel/i.test(v.name),
-      ) ||
-      // 4. US natural female voice
-      voices.find(
-        (v) =>
-          /en[-_]?US/i.test(v.lang) &&
-          /natural|jenny|aria|samantha|female/i.test(v.name),
-      ) ||
-      // 5. Any English Google/Microsoft voice
-      voices.find(
-        (v) => /^en/i.test(v.lang) && /google|microsoft/i.test(v.name),
-      ) ||
-      // 6. Any English voice
+      inTier(/en[-_]?NG/i) ||
+      inTier(/en[-_]?(ZA|KE|GH)/i) ||
+      inTier(/en[-_]?GB/i) ||
+      inTier(/en[-_]?US/i) ||
+      inTier(/^en/i) ||
       voices.find((v) => /^en/i.test(v.lang)) ||
       voices[0]
     );
-  }, [supported]);
+  }, [supported, preferredGender]);
 
   const speakFrom = useCallback(
     (startIdx) => {

@@ -1,59 +1,94 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CloseIcon, MicIcon } from "./icons";
 import useSpeechRecognition from "../hooks/useSpeechRecognition";
 
-// Modal overlay that pops up when the student wants to ask a question
-// mid-lesson. Triggers the parent to pause the teleprompter on open,
-// and to resume on close.
+// Q&A overlay between the student and the AI teacher. Pops up when the
+// student wants to ask a question mid-lesson. The parent pauses the
+// lesson on open and resumes it on close.
 //
 // Props:
-// - open: boolean
-// - lesson: the full lesson object (used to lock the AI to this content)
-// - resumeContext: { sectionHeading, sentence } — what was being read
-//   when the student interrupted. Shown so the student remembers context.
-// - onClose: () => void  (parent resumes the lesson)
-// - classLevel
+//   open: boolean
+//   lesson: the full lesson (used to lock the AI to today's content)
+//   resumeContext: { sectionHeading, sentence } — where the lesson paused
+//   onClose: () => void  (parent resumes the lesson)
+//   classLevel
+//   preferredGender: "male" | "female" | "any" — drives the voice
+//   presenterName: e.g. "Mrs. Adesua · AI Tutor"
 export default function AskAIModal({
   open,
   lesson,
   resumeContext,
   onClose,
   classLevel = "JSS 1",
+  preferredGender = "any",
+  presenterName = "AI Tutor",
 }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const inputRef = useRef(null);
   const scrollRef = useRef(null);
-  const lastAnswerVoiceRef = useRef(null);
 
-  // Voice-to-text for the student's question. When the user releases
-  // (final result), we either auto-send or fill the input box.
+  // Pick a voice that matches the subject's preferred gender so the
+  // teacher in the chat sounds like the teacher in the lesson.
+  const pickVoice = useMemo(
+    () => () => {
+      if (!("speechSynthesis" in window)) return null;
+      const voices = window.speechSynthesis.getVoices();
+      if (!voices.length) return null;
+      const female =
+        /female|ezinne|aria|jenny|libby|sonia|maisie|hazel|samantha|zira|salma|natasha/i;
+      const male =
+        /male|abeo|guy|davis|david|ryan|james|brian|mark|tony|george|daniel/i;
+      const matches = (v) => {
+        if (preferredGender === "female")
+          return female.test(v.name) && !/male/i.test(v.name.replace(/female/i, ""));
+        if (preferredGender === "male")
+          return male.test(v.name) && !female.test(v.name);
+        return true;
+      };
+      const inTier = (re) => {
+        const tier = voices.filter((v) => re.test(v.lang));
+        return tier.find(matches) || (preferredGender === "any" ? tier[0] : null);
+      };
+      return (
+        inTier(/en[-_]?NG/i) ||
+        inTier(/en[-_]?(ZA|KE|GH)/i) ||
+        inTier(/en[-_]?GB/i) ||
+        inTier(/en[-_]?US/i) ||
+        inTier(/^en/i) ||
+        voices[0]
+      );
+    },
+    [preferredGender],
+  );
+
+  // Voice-to-text for the student's question. Auto-sends on final result
+  // (after trimming junk).
   const speechRec = useSpeechRecognition({
     continuous: false,
     interimResults: true,
     onResult: (finalText) => {
-      // Auto-send the question once recognized.
       send(finalText);
     },
   });
 
-  // Reset chat whenever the modal opens fresh, and focus the input.
+  // Welcome message + reset chat whenever the modal opens fresh.
   useEffect(() => {
     if (open) {
-      setMessages([]);
+      const initialGreeting = buildGreeting(presenterName, lesson, resumeContext);
+      setMessages([{ role: "assistant", content: initialGreeting, isGreeting: true }]);
       setInput("");
-      setTimeout(() => inputRef.current?.focus(), 50);
+      setTimeout(() => inputRef.current?.focus(), 80);
     } else {
-      // Stop voice recognition + any AI-spoken answer when the modal closes.
       speechRec.abort();
       if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Mirror live transcription into the input box so the user can see
-  // what the AI is hearing before sending.
+  // Mirror live transcription into the input box so the user sees what
+  // the AI is hearing before sending.
   useEffect(() => {
     if (speechRec.listening && speechRec.transcript) {
       setInput(speechRec.transcript);
@@ -68,7 +103,6 @@ export default function AskAIModal({
 
   if (!open) return null;
 
-  // Stop any AI-spoken answer and close the modal — parent resumes the lesson.
   function handleClose() {
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     onClose?.();
@@ -80,17 +114,44 @@ export default function AskAIModal({
     const u = new SpeechSynthesisUtterance(text);
     u.lang = "en-US";
     u.rate = 1;
-    u.pitch = 1.05;
-    lastAnswerVoiceRef.current = u;
+    u.pitch = preferredGender === "female" ? 1.1 : 0.95;
+    const v = pickVoice();
+    if (v) u.voice = v;
     window.speechSynthesis.speak(u);
+  }
+
+  // Validate input — voice recognition often returns just punctuation
+  // ("::", ".", " ") when audio is unclear. Require at least 2 letters.
+  function isJunk(text) {
+    if (!text) return true;
+    return !/[a-zA-Z]{2,}/.test(text);
   }
 
   async function send(content) {
     const text = (content ?? input).trim();
-    if (!text || sending) return;
+    if (sending) return;
+    if (isJunk(text)) {
+      // Don't bother the AI with garbage — show a hint instead.
+      setInput("");
+      setMessages((m) => [
+        ...m,
+        {
+          role: "assistant",
+          content:
+            "I didn't quite catch that — could you say it again, or type your question?",
+          isHint: true,
+        },
+      ]);
+      return;
+    }
     setInput("");
-    const next = [...messages, { role: "user", content: text }];
-    setMessages(next);
+    const next = [
+      // Strip greeting/hint messages from history so the AI sees only the
+      // real conversation.
+      ...messages.filter((m) => !m.isGreeting && !m.isHint),
+      { role: "user", content: text },
+    ];
+    setMessages((m) => [...m, { role: "user", content: text }]);
     setSending(true);
     try {
       const r = await fetch("/api/chat", {
@@ -102,7 +163,6 @@ export default function AskAIModal({
             classLevel,
             subject: lesson?.subjectName,
             topic: lesson?.topic,
-            // Send the entire lesson as the AI's only knowledge source.
             lessonContent: lessonToText(lesson),
           },
         }),
@@ -111,7 +171,6 @@ export default function AskAIModal({
       if (!r.ok) throw new Error(data?.error || "Chat failed");
       const reply = data.reply || "(no reply)";
       setMessages((m) => [...m, { role: "assistant", content: reply }]);
-      // AI speaks its answer too — both text and voice, as spec'd.
       speakAnswer(reply);
     } catch (err) {
       const raw = String(err?.message || err);
@@ -132,41 +191,55 @@ export default function AskAIModal({
     }
   }
 
-  const suggestions = [
-    "Explain that again, simpler",
-    "Can you give me an example?",
-    "Why is that important?",
-    "Quiz me on this",
-  ];
+  const suggestions = useMemo(
+    () => [
+      "Can you explain that again, simpler?",
+      "Can you give me an example?",
+      `Why is this important?`,
+      `Quiz me on ${lesson?.topic || "this"}`,
+    ],
+    [lesson?.topic],
+  );
+
+  // Empty-state aware label for the "paused on" indicator.
+  const pausedLabel =
+    resumeContext?.sectionHeading && resumeContext.sectionHeading !== "—"
+      ? `Lesson paused on: ${resumeContext.sectionHeading}`
+      : "Lesson hasn't started yet";
+
+  // Hide the greeting + hint messages from the chat history once a real
+  // exchange has begun, so the conversation stays clean.
+  const hasRealExchange = messages.some((m) => m.role === "user");
+  const visibleMessages = hasRealExchange
+    ? messages.filter((m) => !m.isGreeting && !m.isHint)
+    : messages;
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-ink-900/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-ink-900/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-2 sm:p-4"
       onClick={handleClose}
     >
       <div
-        className="bg-white w-full max-w-xl rounded-2xl shadow-2xl flex flex-col max-h-[85vh] animate-[fadeIn_0.2s_ease-out]"
+        className="bg-white w-full max-w-xl rounded-3xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[85vh] animate-[fadeIn_0.2s_ease-out] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 py-3 border-b border-ink-100 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-100 to-orange-100 flex items-center justify-center text-lg">
-            🤖
+        <div className="px-5 py-3 border-b border-ink-100 flex items-center gap-3 bg-gradient-to-r from-blue-50/50 to-orange-50/50">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-200 to-orange-200 flex items-center justify-center text-xl shrink-0 ring-2 ring-white shadow-card">
+            👩‍🏫
           </div>
           <div className="flex-1 min-w-0">
-            <div className="font-bold text-ink-900 text-sm">
-              Ask the AI Tutor
+            <div className="font-bold text-ink-900 text-sm truncate">
+              {presenterName}
             </div>
-            <div className="text-[11px] text-ink-500 truncate">
-              Lesson paused on:{" "}
-              <span className="font-medium">
-                {resumeContext?.sectionHeading || "—"}
-              </span>
+            <div className="text-[11px] text-ink-500 truncate flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              {pausedLabel}
             </div>
           </div>
           <button
             onClick={handleClose}
-            className="w-9 h-9 rounded-full hover:bg-ink-100 flex items-center justify-center text-ink-500"
+            className="w-9 h-9 rounded-full hover:bg-ink-100 flex items-center justify-center text-ink-500 shrink-0"
             title="Close and resume lesson"
             aria-label="Close and resume lesson"
           >
@@ -174,20 +247,20 @@ export default function AskAIModal({
           </button>
         </div>
 
-        {/* Quoted excerpt the student was hearing when they interrupted */}
-        {resumeContext?.sentence && (
+        {/* Quoted excerpt — only when there's actually a paused sentence */}
+        {resumeContext?.sentence && hasRealExchange === false && (
           <div className="px-5 pt-3">
-            <div className="text-[11px] uppercase tracking-wide text-ink-500 mb-1">
-              You interrupted here
+            <div className="text-[10px] uppercase tracking-wider text-ink-500 mb-1 font-semibold">
+              You paused on
             </div>
-            <div className="bg-ink-100/60 rounded-lg p-3 text-xs text-ink-700 italic">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2.5 text-xs text-ink-700 italic">
               "{resumeContext.sentence}"
             </div>
           </div>
         )}
 
-        {/* Suggestion chips (only before first message) */}
-        {messages.length === 0 && (
+        {/* Suggestion chips — only before first user message */}
+        {!hasRealExchange && (
           <div className="px-5 pt-3 flex flex-wrap gap-1.5">
             {suggestions.map((s) => (
               <button
@@ -204,30 +277,17 @@ export default function AskAIModal({
         {/* Chat scroll area */}
         <div
           ref={scrollRef}
-          className="flex-1 overflow-y-auto px-5 py-4 space-y-3 min-h-[8rem]"
+          className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-3 min-h-[10rem]"
         >
-          {messages.length === 0 && !sending && (
-            <div className="text-xs text-ink-500 text-center py-6">
-              Ask me anything about <strong>{lesson?.topic}</strong>. I'll
-              answer using only what's in today's lesson.
-            </div>
-          )}
-          {messages.map((m, i) => (
-            <div
-              key={i}
-              className={`text-sm leading-relaxed rounded-2xl p-3 max-w-[85%] whitespace-pre-wrap ${
-                m.role === "user"
-                  ? "bg-brand-blue text-white ml-auto"
-                  : "bg-ink-100 text-ink-900"
-              }`}
-            >
-              {m.content}
-            </div>
+          {visibleMessages.map((m, i) => (
+            <ChatBubble key={i} role={m.role} content={m.content} presenterName={presenterName} />
           ))}
           {sending && (
-            <div className="text-xs bg-ink-100 rounded-2xl p-3 inline-flex items-center gap-1">
-              <Dot /> <Dot delay={150} /> <Dot delay={300} />
-            </div>
+            <ChatBubble role="assistant" presenterName={presenterName}>
+              <span className="inline-flex items-center gap-1">
+                <Dot /> <Dot delay={150} /> <Dot delay={300} />
+              </span>
+            </ChatBubble>
           )}
         </div>
 
@@ -237,10 +297,8 @@ export default function AskAIModal({
             e.preventDefault();
             send();
           }}
-          className="p-3 border-t border-ink-100 flex gap-2"
+          className="p-3 border-t border-ink-100 flex gap-2 items-center"
         >
-          {/* Mic button — toggles speech-to-text. While listening it
-              pulses red and the transcript streams into the input box. */}
           <button
             type="button"
             onClick={() =>
@@ -276,31 +334,62 @@ export default function AskAIModal({
                 ? "Listening…"
                 : "Type or tap the mic to speak"
             }
-            className="flex-1 text-sm bg-ink-100/60 rounded-full px-4 py-2.5 outline-none focus:ring-2 focus:ring-brand-blue/30"
+            className="flex-1 min-w-0 text-sm bg-ink-100/60 rounded-full px-4 py-2.5 outline-none focus:ring-2 focus:ring-brand-blue/30"
           />
           <button
             type="submit"
-            disabled={sending || !input.trim()}
-            className="bg-brand-blue hover:bg-brand-blue-dark text-white text-sm font-semibold px-4 py-2.5 rounded-full disabled:opacity-50"
+            disabled={sending || isJunk(input)}
+            className="shrink-0 bg-brand-blue hover:bg-brand-blue-dark text-white text-sm font-semibold px-4 py-2.5 rounded-full disabled:opacity-50"
           >
             Send
           </button>
         </form>
 
-        {/* Footer hint */}
-        <div className="px-5 py-2 border-t border-ink-100 text-[11px] text-ink-500 flex items-center justify-between">
-          <span className="flex items-center gap-1">
-            <MicIcon className="w-3 h-3" />{" "}
-            {speechRec.supported
-              ? "Speak or type — AI will reply with voice"
-              : "AI will speak its answer"}
+        {/* Footer */}
+        <div className="px-5 py-2 border-t border-ink-100 text-[11px] text-ink-500 flex items-center justify-between gap-2">
+          <span className="flex items-center gap-1 min-w-0 truncate">
+            <MicIcon className="w-3 h-3 shrink-0" />{" "}
+            <span className="truncate">
+              {speechRec.supported
+                ? "Speak or type — AI replies with voice"
+                : "AI will speak its answer"}
+            </span>
           </span>
           <button
             onClick={handleClose}
-            className="text-brand-blue font-semibold hover:underline"
+            className="text-brand-blue font-semibold hover:underline shrink-0"
           >
             Resume lesson →
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChatBubble({ role, content, presenterName, children }) {
+  if (role === "user") {
+    return (
+      <div className="flex justify-end animate-[fadeIn_0.25s_ease-out]">
+        <div className="bg-brand-blue text-white rounded-2xl rounded-tr-sm px-4 py-2.5 max-w-[85%] text-sm leading-relaxed whitespace-pre-wrap shadow-card">
+          {content}
+        </div>
+      </div>
+    );
+  }
+  // Assistant
+  const shortName = (presenterName || "AI Tutor").split("·")[0].trim();
+  return (
+    <div className="flex items-start gap-2 animate-[fadeIn_0.25s_ease-out]">
+      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-200 to-orange-200 flex items-center justify-center text-base shrink-0 ring-2 ring-white shadow-card">
+        👩‍🏫
+      </div>
+      <div className="flex flex-col items-start max-w-[85%]">
+        <div className="text-[10px] text-ink-500 font-semibold mb-0.5 ml-1">
+          {shortName}
+        </div>
+        <div className="bg-ink-100 text-ink-900 rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap">
+          {children || content}
         </div>
       </div>
     </div>
@@ -316,7 +405,16 @@ function Dot({ delay = 0 }) {
   );
 }
 
-// Locally serialize the lesson so we don't depend on src/data here.
+function buildGreeting(presenterName, lesson, resumeContext) {
+  const shortName = (presenterName || "AI Tutor").split("·")[0].trim();
+  const topic = lesson?.topic || "today's lesson";
+  if (resumeContext?.sectionHeading) {
+    return `Hi! 👋 I'm ${shortName}. We're on "${resumeContext.sectionHeading}" — what would you like me to explain about ${topic}? You can type or tap the microphone to speak.`;
+  }
+  return `Hi! 👋 I'm ${shortName}. What would you like to ask about ${topic}? You can type your question or tap the microphone to speak.`;
+}
+
+// Locally serialize the lesson — sent as the AI's only knowledge source.
 function lessonToText(lesson) {
   if (!lesson?.sections) return "";
   return lesson.sections

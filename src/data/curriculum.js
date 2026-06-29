@@ -12,6 +12,8 @@ export const SUBJECTS = [
     accent: "from-blue-500 to-blue-700",
     iconTint: "bg-blue-100",
     progress: 0,
+    voiceGender: "male", // Math teacher uses a male voice
+    presenterName: "Mr. Adebayo · AI Tutor",
     topics: [
       {
         title: "Fractions",
@@ -29,6 +31,8 @@ export const SUBJECTS = [
     accent: "from-emerald-500 to-emerald-700",
     iconTint: "bg-emerald-100",
     progress: 0,
+    voiceGender: "female", // Science teacher uses a female voice
+    presenterName: "Mrs. Adesua · AI Tutor",
     topics: [
       {
         title: "Living Things",
