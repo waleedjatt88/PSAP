@@ -72,7 +72,7 @@ export default function LessonSlide({
         <div className="text-[11px] uppercase tracking-[0.2em] text-brand-blue font-bold mb-1">
           Topic
         </div>
-        <h2 className="text-4xl lg:text-5xl xl:text-6xl font-extrabold text-ink-900 leading-[1.05]">
+        <h2 className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-extrabold text-ink-900 leading-[1.05]">
           {section.heading}
         </h2>
       </div>
@@ -85,7 +85,7 @@ export default function LessonSlide({
         ].join(" ")}
       >
         {/* Sentences with the active one highlighted */}
-        <div className="text-xl lg:text-2xl xl:text-3xl text-ink-700 leading-relaxed overflow-y-auto pr-2">
+        <div className="text-base md:text-lg lg:text-xl xl:text-2xl text-ink-700 leading-relaxed overflow-y-auto pr-2">
           <p>
             {section.sentences.map((text, i) => {
               const globalIdx = sectionStartIdx + i;

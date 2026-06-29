@@ -13,11 +13,22 @@ import mascotImg from "../assets/AI_Lesson.png";
 // To swap the teacher: save your preferred photo to
 //   passpoint-demo/public/teacher-avatar.jpg
 // then refresh the page — no code changes needed.
+// Resolution chain for the teacher portrait:
+//   1. Local files in /public — drop in whatever photo you like.
+//   2. Hosted photo URLs (Unsplash CDN) — real, free-to-use portraits
+//      so the demo never starts with a cartoon avatar.
+//   3. DiceBear illustrated portrait — works without network if the
+//      Unsplash URLs ever break.
+//   4. Bundled robot mascot — last-resort safety net.
 const TEACHER_PATHS = [
   "/teacher-avatar.jpg",
   "/teacher-avatar.jpeg",
   "/teacher-avatar.png",
   "/teacher-avatar.webp",
+  // Public Unsplash CDN portraits — professional African male in suit.
+  // Square-cropped at 400x400 with face-aware cropping.
+  "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=400&h=400&fit=crop&crop=faces&q=80",
+  "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=faces&q=80",
 ];
 
 const DICEBEAR_URL = (seed) =>
