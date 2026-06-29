@@ -5,705 +5,365 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
   MicIcon,
-  CloseIcon,
   CheckIcon,
 } from "../components/icons";
+import AskAIModal from "../components/AskAIModal";
+import useTeleprompter from "../hooks/useTeleprompter";
+import { findSubject, findTopic, lessonHref } from "../data/curriculum";
+import { getLesson, flattenLesson } from "../data/lessons/index.js";
 import mascotImg from "../assets/AI_Lesson.png";
 import mathImg from "../assets/Math.png";
 import scienceImg from "../assets/Science.png";
-import { findSubject, lessonHref } from "../data/curriculum";
 
 const ILLUSTRATION_MAP = { math: mathImg, science: scienceImg };
-
-// Suggested follow-up chips. The current topic name is injected at render time.
-function buildSuggested(topic) {
-  return [
-    "Explain in simpler words",
-    "Give me an example",
-    `Why is ${topic} important?`,
-    `Quiz me on ${topic}`,
-  ];
-}
-
-// Lightweight placeholder lesson shown while the AI is generating (or as a
-// fallback if the AI call fails entirely). It's deliberately generic so it
-// works for any subject + topic.
-function buildPlaceholderLesson(subjectName, topic) {
-  return {
-    title: topic,
-    greeting: `Hello {name}! 👋 Today, we're going to learn about ${topic} in ${subjectName}.`,
-    definition: `Loading your personalized lesson on ${topic}…`,
-    keyParts: [],
-    keyTakeaways: [],
-    tipsFromAI: "",
-    outline: [`What is ${topic}?`, `Examples of ${topic}`, `Practice ${topic}`],
-  };
-}
 
 export default function Lesson() {
   const { user } = useUser();
   const [search] = useSearchParams();
+  const navigate = useNavigate();
 
-  // Read subject + topic from URL (?subject=...&topic=...). Falls back to the
-  // first curriculum subject and its first topic so /lesson with no params
-  // still renders.
   const subjectId = search.get("subject") || "mathematics";
-  const topic = search.get("topic") || "Fractions";
+  const topicTitle = search.get("topic") || "Fractions";
   const subject = useMemo(() => findSubject(subjectId), [subjectId]);
-
-  const [lesson, setLesson] = useState(() =>
-    buildPlaceholderLesson(subject.name, topic),
+  const topic = useMemo(
+    () => findTopic(subjectId, topicTitle),
+    [subjectId, topicTitle],
   );
-  const [activeStep, setActiveStep] = useState(0);
-  const [tutorOpen, setTutorOpen] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const voice = useVoiceLesson();
+  const lesson = useMemo(() => getLesson(topic.lessonId), [topic]);
 
-  // Topics from the curriculum become the lesson outline. The currently-open
-  // topic is highlighted.
-  const outline = subject.topics;
-  const topicIndex = Math.max(0, outline.indexOf(topic));
+  // Flatten the lesson into a single ordered list of sentences for the
+  // teleprompter. `flat[i]` describes the i-th sentence + which section
+  // it belongs to.
+  const flat = useMemo(() => flattenLesson(lesson), [lesson]);
+  const sentences = useMemo(() => flat.map((f) => f.text), [flat]);
 
-  // Fetch a fresh AI-generated lesson whenever subject/topic/class changes.
+  const tele = useTeleprompter(sentences);
+  const [askOpen, setAskOpen] = useState(false);
+
+  // Auto-scroll the currently-highlighted sentence into view.
+  const sentenceRefs = useRef([]);
   useEffect(() => {
-    let alive = true;
-    async function load() {
-      setLoading(true);
-      setError(null);
-      setLesson(buildPlaceholderLesson(subject.name, topic));
-      setActiveStep(topicIndex);
-      voice.stop();
-      try {
-        const r = await fetch("/api/lesson", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            classLevel: user?.classLevel || "JSS 1",
-            subject: subject.name,
-            topic,
-          }),
-        });
-        if (!r.ok) {
-          const data = await r.json().catch(() => ({}));
-          throw new Error(data.error || `HTTP ${r.status}`);
-        }
-        const data = await r.json();
-        if (!alive) return;
-        // Merge with placeholder so any missing field still renders.
-        setLesson((prev) => ({ ...prev, ...data, title: data.title || topic }));
-      } catch (e) {
-        if (!alive) return;
-        console.warn("Lesson AI call failed:", e.message);
-        setError(e.message);
-      } finally {
-        if (alive) setLoading(false);
-      }
+    if (tele.currentIdx < 0) return;
+    const el = sentenceRefs.current[tele.currentIdx];
+    if (el?.scrollIntoView) {
+      el.scrollIntoView({ block: "center", behavior: "smooth" });
     }
-    load();
-    return () => {
-      alive = false;
-    };
-    // voice intentionally not in deps — its stop() is stable for our usage.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subject.id, topic, user?.classLevel]);
+  }, [tele.currentIdx]);
 
-  const SUGGESTED = buildSuggested(topic);
+  // If the topic/lesson changes (e.g. via URL), stop any speech and reset.
+  useEffect(() => {
+    tele.stop();
+    setAskOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lesson?.id]);
+
+  // When the AskAI modal opens, pause the lesson. When it closes, resume.
+  function openAskAI() {
+    if (tele.state === "playing") tele.pause();
+    setAskOpen(true);
+  }
+  function closeAskAI() {
+    setAskOpen(false);
+    // If we paused on a real sentence, auto-resume.
+    if (tele.currentIdx >= 0 && tele.state === "paused") {
+      // Small delay so the AI's spoken answer fully stops before lesson resumes.
+      setTimeout(() => tele.play(), 250);
+    }
+  }
+
+  // Context shown inside the modal so the student remembers what was being
+  // read when they interrupted.
+  const resumeCtx = useMemo(() => {
+    if (tele.currentIdx < 0 || tele.currentIdx >= flat.length) return null;
+    const f = flat[tele.currentIdx];
+    return { sectionHeading: f.sectionHeading, sentence: f.text };
+  }, [tele.currentIdx, flat]);
 
   const illustration =
     subject.image && ILLUSTRATION_MAP[subject.image]
       ? ILLUSTRATION_MAP[subject.image]
       : null;
 
-  const greeting = (
-    lesson.greeting ||
-    `Hello {name}! 👋 Today, we're going to learn about ${topic}.`
-  ).replace("{name}", user?.name?.split(" ")[0] || "there");
-  const progress = ((activeStep + 1) / Math.max(outline.length, 1)) * 100;
+  if (!lesson) {
+    return (
+      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-amber-900">
+        Lesson not found.{" "}
+        <Link to="/subjects" className="font-semibold underline">
+          Back to subjects
+        </Link>
+      </div>
+    );
+  }
+
+  const progressPct = flat.length
+    ? Math.round(((Math.max(tele.currentIdx, 0) + 1) / flat.length) * 100)
+    : 0;
+  const greetingName = user?.name?.split(" ")[0] || "there";
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
+    <div className="space-y-4 pb-28">
+      {/* Header / breadcrumb */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2 text-sm text-ink-700">
-          <Link to="/subjects" className="flex items-center gap-2 hover:text-ink-900">
+          <Link
+            to="/subjects"
+            className="flex items-center gap-2 hover:text-ink-900"
+          >
             <ArrowLeftIcon className="w-4 h-4" />
             <span>{subject.name}</span>
           </Link>
           <span className="text-ink-300">/</span>
-          <span className="font-semibold text-ink-900">{topic}</span>
+          <span className="font-semibold text-ink-900">{topic.title}</span>
         </div>
         <div className="flex items-center gap-2 text-xs">
           <span className="text-ink-500">Progress</span>
           <div className="h-2 w-40 rounded-full bg-ink-100 overflow-hidden">
-            <div className="h-full bg-brand-blue" style={{ width: `${progress}%` }} />
+            <div
+              className="h-full bg-brand-blue transition-all"
+              style={{ width: `${progressPct}%` }}
+            />
           </div>
-          <span className="font-semibold">{Math.round(progress)}%</span>
+          <span className="font-semibold tabular-nums w-10 text-right">
+            {progressPct}%
+          </span>
         </div>
       </div>
 
-      <div className="grid grid-cols-12 gap-4">
-        {/* Main lesson */}
-        <div className={`${tutorOpen ? "col-span-12 lg:col-span-8 xl:col-span-9" : "col-span-12"} space-y-4 transition-all`}>
-          {/* AI Tutor greeting card */}
-          <div className="bg-white rounded-2xl shadow-card p-5 flex items-start gap-4">
-            <Mascot />
-            <div className="flex-1">
-              <div className="inline-flex items-center gap-2 text-xs font-semibold text-brand-blue bg-blue-50 rounded-full px-3 py-1">
-                ✨ AI Tutor
-              </div>
-              <h2 className="text-xl font-bold mt-2">{greeting}</h2>
-              <div className="mt-3 flex items-center gap-2 flex-wrap">
-                <button
-                  onClick={() => voice.toggle(buildLessonScript(lesson, greeting))}
-                  disabled={!voice.supported}
-                  title={
-                    !voice.supported
-                      ? "Voice not supported in this browser"
-                      : voice.state === "playing"
-                        ? "Pause voice lesson"
-                        : voice.state === "paused"
-                          ? "Resume voice lesson"
-                          : "Play voice lesson"
-                  }
-                  className="w-9 h-9 rounded-full bg-brand-blue text-white flex items-center justify-center hover:bg-brand-blue-dark disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {voice.state === "playing" ? "⏸" : "▶"}
-                </button>
-                {voice.state !== "idle" && (
-                  <button
-                    onClick={voice.stop}
-                    title="Stop voice lesson"
-                    className="w-9 h-9 rounded-full bg-ink-100 text-ink-700 flex items-center justify-center hover:bg-ink-300"
-                  >
-                    ■
-                  </button>
-                )}
-                <WaveBars active={voice.state === "playing"} />
-                <span className="text-xs text-ink-500 ml-1">
-                  {voice.state === "playing"
-                    ? "🔊 Speaking…"
-                    : voice.state === "paused"
-                      ? "Paused"
-                      : !voice.supported
-                        ? "Voice not supported"
-                        : "Voice lesson"}
-                </span>
-                {voice.supported && (
-                  <div className="flex items-center gap-1 ml-auto">
-                    <span className="text-[10px] text-ink-500">Speed</span>
-                    {[0.85, 1, 1.25].map((r) => (
-                      <button
-                        key={r}
-                        onClick={() => voice.setRate(r)}
-                        className={`text-[10px] px-1.5 py-0.5 rounded ${
-                          voice.rate === r
-                            ? "bg-brand-blue text-white"
-                            : "bg-ink-100 text-ink-700 hover:bg-ink-300"
-                        }`}
-                      >
-                        {r}×
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {loading && (
-                <div className="text-xs text-ink-500 mt-2">
-                  ✨ Personalizing lesson with AI…
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Body */}
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="bg-white rounded-2xl shadow-card p-5">
-              <h3 className="font-bold text-ink-900">What is {lesson.title}?</h3>
-              <p className="text-sm text-ink-700 mt-2 leading-relaxed">
-                {lesson.definition}
-              </p>
-
-              <div className="mt-4 space-y-3">
-                {(lesson.keyParts || []).map((p) => (
-                  <div key={p.name} className="bg-orange-50 border border-orange-100 rounded-xl p-3">
-                    <div className="text-sm font-semibold text-brand-orange-dark">
-                      {p.name}
-                    </div>
-                    <div className="text-xs text-ink-700 mt-1">{p.description}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl shadow-card p-5 flex items-center justify-center min-h-[16rem]">
-              {illustration ? (
-                <img
-                  src={illustration}
-                  alt={`${topic} illustration`}
-                  className="w-56 h-56 object-contain"
-                />
-              ) : (
-                <div
-                  className={`w-44 h-44 rounded-full bg-gradient-to-br ${subject.tint} flex items-center justify-center text-7xl shadow-inner`}
-                >
-                  {subject.emoji}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {error && (
-            <div className="bg-amber-50 border border-amber-200 text-amber-900 text-xs rounded-xl p-3">
-              ⚠️ Couldn't generate this lesson with AI:{" "}
-              <code className="bg-amber-100 px-1 rounded">{error}</code>
-            </div>
-          )}
-
-          {/* Footer nav — Prev / Next walk through the subject's topics */}
-          <div className="bg-white rounded-2xl shadow-card p-3 flex items-center justify-between gap-2">
-            {topicIndex > 0 ? (
-              <Link
-                to={lessonHref(subject.id, outline[topicIndex - 1])}
-                className="flex items-center gap-2 text-sm font-medium text-ink-700 hover:text-ink-900 px-3 py-2"
-              >
-                <ArrowLeftIcon className="w-4 h-4" />
-                <span className="hidden sm:inline">{outline[topicIndex - 1]}</span>
-                <span className="sm:hidden">Previous</span>
-              </Link>
-            ) : (
-              <span className="px-3 py-2 text-sm text-ink-300">Previous</span>
-            )}
-            <button
-              onClick={() => setTutorOpen(true)}
-              className="flex items-center gap-2 bg-brand-blue text-white text-sm font-semibold px-5 py-2.5 rounded-full shadow-card hover:bg-brand-blue-dark shrink-0"
-            >
-              <MicIcon className="w-4 h-4" /> ASK AI
-            </button>
-            {topicIndex < outline.length - 1 ? (
-              <Link
-                to={lessonHref(subject.id, outline[topicIndex + 1])}
-                className="flex items-center gap-2 text-sm font-medium text-ink-700 hover:text-ink-900 px-3 py-2"
-              >
-                <span className="hidden sm:inline">{outline[topicIndex + 1]}</span>
-                <span className="sm:hidden">Next</span>
-                <ArrowRightIcon className="w-4 h-4" />
-              </Link>
-            ) : (
-              <span className="px-3 py-2 text-sm text-ink-300">Next</span>
-            )}
-          </div>
+      {/* Placeholder banner */}
+      {lesson.isPlaceholder && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-900 text-xs rounded-xl p-3">
+          ⚠️ <strong>Placeholder content.</strong> The official Basic Science
+          lesson notes are pending. Replace{" "}
+          <code className="bg-amber-100 px-1 rounded">
+            src/data/lessons/living-things.js
+          </code>{" "}
+          to use the supplied content.
         </div>
+      )}
 
-        {/* Right column: Outline + Key takeaways OR AI Tutor chat */}
-        <div className={`${tutorOpen ? "col-span-12 lg:col-span-4 xl:col-span-3" : "hidden"}`}>
-          <AITutorPanel
-            user={user}
-            subject={subject}
-            topic={topic}
-            keyTakeaways={lesson.keyTakeaways}
-            tipsFromAI={lesson.tipsFromAI}
-            outline={outline}
-            activeStep={topicIndex}
-            suggested={SUGGESTED}
-            onClose={() => setTutorOpen(false)}
+      {/* Hero / presenter card */}
+      <div className="bg-white rounded-2xl shadow-card p-5 flex items-start gap-4">
+        <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-100 to-orange-100 flex items-center justify-center shrink-0 overflow-hidden">
+          <img
+            src={mascotImg}
+            alt="AI Tutor"
+            className="h-20 w-20 object-contain"
           />
         </div>
-      </div>
-    </div>
-  );
-}
-
-function AITutorPanel({
-  user,
-  subject,
-  topic,
-  keyTakeaways,
-  tipsFromAI,
-  outline,
-  activeStep,
-  suggested,
-  onClose,
-}) {
-  const navigate = useNavigate();
-  const [tab, setTab] = useState("outline");
-  // Chat history resets whenever the topic changes — otherwise prior context
-  // would bleed across subjects.
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState("");
-  const [sending, setSending] = useState(false);
-  const scrollRef = useRef(null);
-
-  useEffect(() => {
-    setMessages([]);
-  }, [topic, subject.id]);
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages, sending]);
-
-  async function send(content) {
-    const text = (content ?? input).trim();
-    if (!text || sending) return;
-    setInput("");
-    const next = [...messages, { role: "user", content: text }];
-    setMessages(next);
-    setSending(true);
-    try {
-      const r = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: next,
-          context: {
-            classLevel: user?.classLevel || "JSS 1",
-            subject: subject.name,
-            topic,
-          },
-        }),
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data?.error || "Chat failed");
-      setMessages((m) => [...m, { role: "assistant", content: data.reply || "(no reply)" }]);
-    } catch (err) {
-      const raw = String(err?.message || err);
-      let friendly =
-        "Sorry, I couldn't reach the AI service right now. Please try again in a moment.";
-      if (/invalid_api_key|Incorrect API key/i.test(raw)) {
-        friendly =
-          "⚠️ The AI provider's API key is invalid or expired. Update the key in .env and restart the dev server.";
-      } else if (/insufficient_quota|exceeded_quota/i.test(raw)) {
-        friendly =
-          "⚠️ This AI account has run out of credits. Switch providers in .env (e.g. AI_PROVIDER=groq) or top up.";
-      } else if (/rate_limit|rate-limit/i.test(raw)) {
-        friendly = "⚠️ Hit the AI provider's rate limit. Wait a few seconds and try again.";
-      } else if (/missing/i.test(raw)) {
-        friendly = "⚠️ API key missing on the server. Add it to .env and restart.";
-      }
-      setMessages((m) => [...m, { role: "assistant", content: friendly }]);
-      console.error("[chat]", raw);
-    } finally {
-      setSending(false);
-    }
-  }
-
-  return (
-    <div className="bg-white rounded-2xl shadow-card flex flex-col h-[32rem] lg:h-[calc(100vh-9rem)] lg:sticky lg:top-20">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-ink-100">
-        <div className="font-bold flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-500" /> AI Tutor
-        </div>
-        <button onClick={onClose} className="text-ink-500 hover:text-ink-900">
-          <CloseIcon className="w-4 h-4" />
-        </button>
-      </div>
-
-      <div className="px-3 pt-3 grid grid-cols-2 gap-1 text-xs">
-        <TabBtn active={tab === "outline"} onClick={() => setTab("outline")}>
-          Outline
-        </TabBtn>
-        <TabBtn active={tab === "chat"} onClick={() => setTab("chat")}>
-          Ask AI
-        </TabBtn>
-      </div>
-
-      {tab === "outline" ? (
-        <div className="p-3 overflow-y-auto space-y-4">
-          <div>
-            <div className="text-xs font-semibold text-ink-500 mb-2">
-              Lessons Outline
-            </div>
-            <ol className="space-y-1">
-              {outline.map((o, i) => (
-                <li key={o}>
-                  <button
-                    onClick={() => navigate(lessonHref(subject.id, o))}
-                    className={`w-full text-left text-xs px-2.5 py-2 rounded-lg flex items-center gap-2 ${
-                      i === activeStep
-                        ? "bg-brand-blue/10 text-brand-blue font-semibold"
-                        : "hover:bg-ink-100 text-ink-700"
-                    }`}
-                  >
-                    <span
-                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${
-                        i <= activeStep
-                          ? "bg-brand-blue text-white"
-                          : "bg-ink-100 text-ink-500"
-                      }`}
-                    >
-                      {i < activeStep ? <CheckIcon className="w-3 h-3" /> : i + 1}
-                    </span>
-                    {o}
-                  </button>
-                </li>
-              ))}
-            </ol>
+        <div className="flex-1 min-w-0">
+          <div className="inline-flex items-center gap-2 text-xs font-semibold text-brand-blue bg-blue-50 rounded-full px-3 py-1">
+            ✨ AI Tutor
           </div>
+          <h2 className="text-xl font-bold mt-2">
+            Hello {greetingName}! 👋 Today's lesson is on{" "}
+            <span className="text-brand-blue">{topic.title}</span>.
+          </h2>
+          <p className="text-xs text-ink-500 mt-1">
+            {lesson.classLevel} · {subject.name} · ~{lesson.durationMinutes} min
+            · {flat.length} sentences
+          </p>
 
-          {keyTakeaways?.length > 0 && (
-            <div>
-              <div className="text-xs font-semibold text-ink-500 mb-2">
-                Key Takeaways
+          {/* Objectives */}
+          {lesson.objectives?.length > 0 && (
+            <div className="mt-3">
+              <div className="text-[11px] uppercase tracking-wide text-ink-500 mb-1">
+                What you'll learn
               </div>
-              <ul className="space-y-2">
-                {keyTakeaways.map((k, i) => (
+              <ul className="grid sm:grid-cols-2 gap-1">
+                {lesson.objectives.map((o) => (
                   <li
-                    key={i}
-                    className="text-xs bg-blue-50 border border-blue-100 rounded-lg p-2 text-ink-700"
+                    key={o}
+                    className="text-xs text-ink-700 flex items-start gap-1.5"
                   >
-                    {k}
+                    <CheckIcon className="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0" />
+                    {o}
                   </li>
                 ))}
               </ul>
             </div>
           )}
-
-          {tipsFromAI && (
-            <div>
-              <div className="text-xs font-semibold text-ink-500 mb-2">
-                Tips from AI
-              </div>
-              <div className="text-xs bg-orange-50 border border-orange-100 rounded-lg p-3 text-ink-700">
-                💡 {tipsFromAI}
-              </div>
-            </div>
-          )}
-
-          {activeStep < outline.length - 1 ? (
-            <button
-              onClick={() =>
-                navigate(lessonHref(subject.id, outline[activeStep + 1]))
-              }
-              className="w-full bg-brand-blue text-white text-xs font-semibold py-2 rounded-lg hover:bg-brand-blue-dark"
-            >
-              Next: {outline[activeStep + 1]} →
-            </button>
-          ) : (
-            <button
-              onClick={() => navigate("/subjects")}
-              className="w-full bg-emerald-500 text-white text-xs font-semibold py-2 rounded-lg hover:bg-emerald-600"
-            >
-              ✓ Subject complete — back to subjects
-            </button>
-          )}
         </div>
-      ) : (
-        <>
-          <div className="p-3 border-b border-ink-100">
-            <div className="text-xs font-semibold text-ink-500 mb-2">
-              Try a question
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {(suggested || []).map((s) => (
-                <button
-                  key={s}
-                  onClick={() => send(s)}
-                  className="text-[11px] bg-ink-100 hover:bg-ink-100/60 rounded-full px-2.5 py-1 text-ink-700"
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
+        {illustration && (
+          <img
+            src={illustration}
+            alt=""
+            className="hidden lg:block w-28 h-28 object-contain shrink-0"
+          />
+        )}
+      </div>
 
-          <div ref={scrollRef} className="flex-1 p-3 overflow-y-auto space-y-3">
-            {messages.length === 0 && !sending && (
-              <div className="text-xs text-ink-500 text-center py-8">
-                Ask me anything about <strong>{topic}</strong> 🤖
-              </div>
-            )}
-            {messages.map((m, i) => (
-              <div
-                key={i}
-                className={`text-xs leading-relaxed rounded-xl p-2.5 max-w-[90%] whitespace-pre-wrap ${
-                  m.role === "user"
-                    ? "bg-brand-blue text-white ml-auto"
-                    : "bg-ink-100 text-ink-900"
+      {/* Lesson body — sectioned, with sentence-level highlight */}
+      <div className="bg-white rounded-2xl shadow-card p-6 lg:p-8 space-y-6 leading-relaxed">
+        {lesson.sections.map((section) => {
+          // Where does this section start/end in the flat sentence array?
+          const startIdx = flat.findIndex((f) => f.sectionId === section.id);
+          const isActiveSection =
+            tele.currentIdx >= 0 &&
+            startIdx >= 0 &&
+            startIdx <= tele.currentIdx &&
+            tele.currentIdx < startIdx + section.sentences.length;
+
+          return (
+            <section
+              key={section.id}
+              id={`section-${section.id}`}
+              className="scroll-mt-24"
+            >
+              <h3
+                className={`text-lg font-bold mb-2 transition-colors ${
+                  isActiveSection ? "text-brand-blue" : "text-ink-900"
                 }`}
               >
-                {m.content}
-              </div>
-            ))}
-            {sending && (
-              <div className="text-xs bg-ink-100 rounded-xl p-2.5 inline-flex items-center gap-1">
-                <Dot /> <Dot delay={150} /> <Dot delay={300} />
-              </div>
-            )}
+                {section.heading}
+              </h3>
+              <p className="text-base text-ink-700">
+                {section.sentences.map((text, i) => {
+                  const globalIdx = startIdx + i;
+                  const isActive = globalIdx === tele.currentIdx;
+                  const isPast =
+                    tele.currentIdx >= 0 && globalIdx < tele.currentIdx;
+                  return (
+                    <span
+                      key={i}
+                      ref={(el) => (sentenceRefs.current[globalIdx] = el)}
+                      onClick={() => tele.jumpTo(globalIdx)}
+                      className={[
+                        "cursor-pointer transition-all duration-200 rounded px-0.5",
+                        isActive
+                          ? "bg-yellow-200 text-ink-900 ring-2 ring-yellow-400 shadow-sm"
+                          : isPast
+                            ? "text-ink-500"
+                            : "hover:bg-ink-100",
+                      ].join(" ")}
+                      title="Click to jump here"
+                    >
+                      {text}{" "}
+                    </span>
+                  );
+                })}
+              </p>
+            </section>
+          );
+        })}
+      </div>
+
+      {/* Footer nav — within-subject prev/next would go here, but the demo
+          has only one topic per subject. So we just offer "Back to subjects". */}
+      <div className="bg-white rounded-2xl shadow-card p-3 flex items-center justify-between gap-2">
+        <Link
+          to="/subjects"
+          className="flex items-center gap-2 text-sm font-medium text-ink-700 hover:text-ink-900 px-3 py-2"
+        >
+          <ArrowLeftIcon className="w-4 h-4" /> Back to subjects
+        </Link>
+        <button
+          onClick={() => navigate(`/lesson?subject=${subject.id}&topic=${topic.title}`)}
+          className="text-xs text-ink-500 hover:underline"
+        >
+          Restart from top
+        </button>
+        <Link
+          to="/dashboard"
+          className="flex items-center gap-2 text-sm font-medium text-ink-700 hover:text-ink-900 px-3 py-2"
+        >
+          Dashboard <ArrowRightIcon className="w-4 h-4" />
+        </Link>
+      </div>
+
+      {/* Floating control bar — persistent at the bottom of the viewport */}
+      <ControlBar
+        tele={tele}
+        onAskAI={openAskAI}
+        totalSentences={flat.length}
+        supported={tele.supported}
+      />
+
+      {/* Ask AI overlay */}
+      <AskAIModal
+        open={askOpen}
+        lesson={lesson}
+        resumeContext={resumeCtx}
+        classLevel={user?.classLevel || lesson.classLevel}
+        onClose={closeAskAI}
+      />
+    </div>
+  );
+}
+
+function ControlBar({ tele, onAskAI, totalSentences, supported }) {
+  const isPlaying = tele.state === "playing";
+  const isPaused = tele.state === "paused";
+
+  return (
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[min(95vw,40rem)]">
+      <div className="bg-white shadow-2xl border border-ink-100 rounded-2xl p-2 flex items-center gap-2">
+        {!supported && (
+          <div className="px-3 py-2 text-xs text-amber-700">
+            Voice not supported in this browser
           </div>
+        )}
 
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              send();
-            }}
-            className="p-3 border-t border-ink-100 flex gap-2"
+        <button
+          onClick={isPlaying ? tele.pause : tele.play}
+          disabled={!supported}
+          className="w-12 h-12 rounded-full bg-brand-blue text-white text-xl flex items-center justify-center hover:bg-brand-blue-dark disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+          title={isPlaying ? "Pause lesson" : isPaused ? "Resume lesson" : "Start lesson"}
+        >
+          {isPlaying ? "⏸" : "▶"}
+        </button>
+
+        <div className="hidden sm:flex flex-col items-start min-w-0 px-1">
+          <div className="text-[11px] text-ink-500">
+            {isPlaying
+              ? "🔊 Speaking"
+              : isPaused
+                ? "Paused"
+                : "Press play to start"}
+          </div>
+          <div className="text-[10px] text-ink-500">
+            Sentence {Math.max(tele.currentIdx + 1, 0)} / {totalSentences}
+          </div>
+        </div>
+
+        {/* Speed control */}
+        {supported && (
+          <div className="hidden md:flex items-center gap-1 px-2 border-l border-ink-100">
+            <span className="text-[10px] text-ink-500">Speed</span>
+            {[0.85, 1, 1.25].map((r) => (
+              <button
+                key={r}
+                onClick={() => tele.setRate(r)}
+                className={`text-[10px] px-1.5 py-0.5 rounded ${
+                  tele.rate === r
+                    ? "bg-brand-blue text-white"
+                    : "bg-ink-100 text-ink-700 hover:bg-ink-300"
+                }`}
+              >
+                {r}×
+              </button>
+            ))}
+          </div>
+        )}
+
+        {tele.state !== "idle" && (
+          <button
+            onClick={tele.stop}
+            className="px-3 py-2 text-xs font-medium text-ink-700 hover:bg-ink-100 rounded-lg"
+            title="Stop lesson"
           >
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask the AI tutor…"
-              className="flex-1 text-xs bg-ink-100/60 rounded-full px-3 py-2 outline-none focus:ring-2 focus:ring-brand-blue/30"
-            />
-            <button
-              type="submit"
-              disabled={sending || !input.trim()}
-              className="bg-brand-blue text-white text-xs font-semibold px-3 py-2 rounded-full disabled:opacity-50 hover:bg-brand-blue-dark"
-            >
-              Send
-            </button>
-          </form>
-        </>
-      )}
+            ■ Stop
+          </button>
+        )}
+
+        <button
+          onClick={onAskAI}
+          className="ml-auto flex items-center gap-2 bg-brand-orange hover:bg-brand-orange-dark text-white text-sm font-semibold px-4 py-2.5 rounded-full shadow-card"
+          title="Pause and ask a question"
+        >
+          <MicIcon className="w-4 h-4" />
+          <span className="hidden sm:inline">Ask AI</span>
+        </button>
+      </div>
     </div>
   );
 }
-
-function TabBtn({ active, ...p }) {
-  return (
-    <button
-      {...p}
-      className={`py-1.5 rounded-lg font-semibold transition-colors ${
-        active ? "bg-brand-blue/10 text-brand-blue" : "text-ink-500 hover:bg-ink-100"
-      }`}
-    />
-  );
-}
-
-function Dot({ delay = 0 }) {
-  return (
-    <span
-      className="w-1.5 h-1.5 rounded-full bg-ink-500 inline-block animate-bounce"
-      style={{ animationDelay: `${delay}ms` }}
-    />
-  );
-}
-
-function Mascot() {
-  return (
-    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-100 to-orange-100 flex items-center justify-center shrink-0 overflow-hidden">
-      <img src={mascotImg} alt="AI Tutor" className="h-20 w-20 object-contain" />
-    </div>
-  );
-}
-
-function WaveBars({ active = false }) {
-  const heights = [6, 12, 18, 14, 22, 10, 16, 8, 18, 12, 6];
-  return (
-    <div className="flex items-end gap-0.5 h-6">
-      {heights.map((h, i) => (
-        <span
-          key={i}
-          className={`w-1 rounded-full bg-brand-blue/70 ${active ? "wave-bar" : ""}`}
-          style={{
-            height: `${h}px`,
-            animationDelay: active ? `${i * 80}ms` : undefined,
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
-// ---------- Voice lesson (Web Speech API) ----------
-
-function buildLessonScript(lesson, greeting) {
-  const parts = [
-    greeting,
-    `What is ${lesson.title}?`,
-    lesson.definition,
-    ...(lesson.keyParts || []).map(
-      (p) => `${p.name}. ${p.description}`,
-    ),
-  ];
-  if (lesson.tipsFromAI) parts.push(`Tip from AI: ${lesson.tipsFromAI}`);
-  return parts.filter(Boolean).join(". ");
-}
-
-function useVoiceLesson() {
-  const supported =
-    typeof window !== "undefined" && "speechSynthesis" in window;
-  const [state, setState] = useState("idle"); // 'idle' | 'playing' | 'paused'
-  const [rate, setRateState] = useState(1);
-  const utterRef = useRef(null);
-
-  // Cleanup on unmount: stop any speech in progress
-  useEffect(() => {
-    return () => {
-      if (supported) window.speechSynthesis.cancel();
-    };
-  }, [supported]);
-
-  // Pick a pleasant English voice when available
-  function pickVoice() {
-    if (!supported) return null;
-    const voices = window.speechSynthesis.getVoices();
-    if (!voices.length) return null;
-    // Prefer English Google/Microsoft natural voices, female if available
-    const preferred =
-      voices.find((v) => /en[-_]?(US|GB|NG)/i.test(v.lang) && /female|samantha|jenny|aria/i.test(v.name)) ||
-      voices.find((v) => /en[-_]?(US|GB|NG)/i.test(v.lang) && /google|microsoft|natural/i.test(v.name)) ||
-      voices.find((v) => /^en/i.test(v.lang)) ||
-      voices[0];
-    return preferred;
-  }
-
-  function play(script) {
-    if (!supported || !script) return;
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(script);
-    u.lang = "en-US";
-    u.rate = rate;
-    u.pitch = 1.05;
-    const v = pickVoice();
-    if (v) u.voice = v;
-    u.onend = () => setState("idle");
-    u.onerror = () => setState("idle");
-    utterRef.current = u;
-    window.speechSynthesis.speak(u);
-    setState("playing");
-  }
-
-  function toggle(script) {
-    if (!supported) return;
-    if (state === "playing") {
-      window.speechSynthesis.pause();
-      setState("paused");
-    } else if (state === "paused") {
-      window.speechSynthesis.resume();
-      setState("playing");
-    } else {
-      play(script);
-    }
-  }
-
-  function stop() {
-    if (!supported) return;
-    window.speechSynthesis.cancel();
-    setState("idle");
-  }
-
-  function setRate(r) {
-    setRateState(r);
-    // If currently speaking, restart with the new rate from the same text
-    if (state !== "idle" && utterRef.current) {
-      const text = utterRef.current.text;
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = "en-US";
-      u.rate = r;
-      u.pitch = 1.05;
-      const v = pickVoice();
-      if (v) u.voice = v;
-      u.onend = () => setState("idle");
-      u.onerror = () => setState("idle");
-      utterRef.current = u;
-      window.speechSynthesis.speak(u);
-      setState("playing");
-    }
-  }
-
-  return { supported, state, rate, toggle, stop, setRate };
-}
-
