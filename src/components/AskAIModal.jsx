@@ -101,6 +101,18 @@ export default function AskAIModal({
     }
   }, [messages, sending]);
 
+  // Lesson-aware suggestion chips. MUST be declared above the early
+  // return below — React hooks have to run in the same order every render.
+  const suggestions = useMemo(
+    () => [
+      "Can you explain that again, simpler?",
+      "Can you give me an example?",
+      `Why is this important?`,
+      `Quiz me on ${lesson?.topic || "this"}`,
+    ],
+    [lesson?.topic],
+  );
+
   if (!open) return null;
 
   function handleClose() {
@@ -190,16 +202,6 @@ export default function AskAIModal({
       setSending(false);
     }
   }
-
-  const suggestions = useMemo(
-    () => [
-      "Can you explain that again, simpler?",
-      "Can you give me an example?",
-      `Why is this important?`,
-      `Quiz me on ${lesson?.topic || "this"}`,
-    ],
-    [lesson?.topic],
-  );
 
   // Empty-state aware label for the "paused on" indicator.
   const pausedLabel =
