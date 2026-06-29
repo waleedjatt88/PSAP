@@ -20,8 +20,11 @@ This repo contains a working **client demo** built with Vite + React + Tailwind,
 ## Tech stack
 
 - **Frontend:** Vite + React 19 + React Router + Tailwind CSS v3
-- **Backend (proxy):** Node + Express, calls OpenAI Chat Completions
-- **AI:** OpenAI `gpt-4.1` (configurable via env)
+- **Backend (proxy):** Node + Express. Speaks the OpenAI Chat Completions wire format.
+- **AI providers (pick one):**
+  - **Groq** — free tier, default — `llama-3.3-70b-versatile`
+  - **OpenRouter** — free tier — `meta-llama/llama-3.1-8b-instruct:free`
+  - **OpenAI** — paid — `gpt-4.1`
 
 ## Quickstart
 
@@ -43,12 +46,22 @@ npm run dev
 
 ## Environment variables
 
-| Variable          | Default   | Notes                                   |
-| ----------------- | --------- | --------------------------------------- |
-| `AI_PROVIDER`     | `openai`  | Reserved for future provider switching  |
-| `OPENAI_API_KEY`  | _(empty)_ | Required for live AI replies            |
-| `OPENAI_MODEL`    | `gpt-4.1` | Any OpenAI chat-completions model       |
-| `PORT`            | `5001`    | Port for the Express API proxy          |
+| Variable             | Default                                  | Notes                                          |
+| -------------------- | ---------------------------------------- | ---------------------------------------------- |
+| `AI_PROVIDER`        | `groq`                                   | One of `openai` \| `groq` \| `openrouter`      |
+| `GROQ_API_KEY`       | _(empty)_                                | Get free at <https://console.groq.com/keys>    |
+| `GROQ_MODEL`         | `llama-3.3-70b-versatile`                | Any Groq-hosted chat model                     |
+| `OPENROUTER_API_KEY` | _(empty)_                                | Get free at <https://openrouter.ai/keys>       |
+| `OPENROUTER_MODEL`   | `meta-llama/llama-3.1-8b-instruct:free`  | Any OpenRouter model (free or paid)            |
+| `OPENAI_API_KEY`     | _(empty)_                                | Get at <https://platform.openai.com/api-keys>  |
+| `OPENAI_MODEL`       | `gpt-4.1`                                | Any OpenAI chat-completions model              |
+| `PORT`               | `5001`                                   | Port for the Express API proxy                 |
+
+### Switching providers
+
+1. Edit `.env`, set `AI_PROVIDER` to your choice, fill in the matching `*_API_KEY`.
+2. **Restart** the dev server (Ctrl+C, then `npm run dev`) — Express only reads `.env` at startup.
+3. Verify by opening <http://localhost:5001/api/health> — it returns the active provider + model.
 
 ## Project structure
 

@@ -31,3 +31,13 @@ body,
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* Voice lesson — animate bars while speaking */
+@keyframes wave {
+  0%, 100% { transform: scaleY(0.4); }
+  50% { transform: scaleY(1.4); }
+}
+.wave-bar {
+  transform-origin: bottom;
+  animation: wave 0.9s ease-in-out infinite;
+}

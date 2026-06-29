@@ -60,6 +60,7 @@ export default function Lesson() {
   const [activeStep, setActiveStep] = useState(0);
   const [tutorOpen, setTutorOpen] = useState(true);
   const [loading, setLoading] = useState(false);
+  const voice = useVoiceLesson();
 
   // Fetch a fresh AI-generated lesson on mount (falls back to default if API fails)
   useEffect(() => {
@@ -117,7 +118,7 @@ export default function Lesson() {
 
       <div className="grid grid-cols-12 gap-4">
         {/* Main lesson */}
-        <div className={`${tutorOpen ? "col-span-12 xl:col-span-9" : "col-span-12"} space-y-4 transition-all`}>
+        <div className={`${tutorOpen ? "col-span-12 lg:col-span-8 xl:col-span-9" : "col-span-12"} space-y-4 transition-all`}>
           {/* AI Tutor greeting card */}
           <div className="bg-white rounded-2xl shadow-card p-5 flex items-start gap-4">
             <Mascot />
@@ -126,12 +127,60 @@ export default function Lesson() {
                 ✨ AI Tutor
               </div>
               <h2 className="text-xl font-bold mt-2">{greeting}</h2>
-              <div className="mt-3 flex items-center gap-2">
-                <button className="w-9 h-9 rounded-full bg-brand-blue text-white flex items-center justify-center hover:bg-brand-blue-dark">
-                  ▶
+              <div className="mt-3 flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => voice.toggle(buildLessonScript(lesson, greeting))}
+                  disabled={!voice.supported}
+                  title={
+                    !voice.supported
+                      ? "Voice not supported in this browser"
+                      : voice.state === "playing"
+                        ? "Pause voice lesson"
+                        : voice.state === "paused"
+                          ? "Resume voice lesson"
+                          : "Play voice lesson"
+                  }
+                  className="w-9 h-9 rounded-full bg-brand-blue text-white flex items-center justify-center hover:bg-brand-blue-dark disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {voice.state === "playing" ? "⏸" : "▶"}
                 </button>
-                <WaveBars />
-                <span className="text-xs text-ink-500 ml-2">Voice lesson</span>
+                {voice.state !== "idle" && (
+                  <button
+                    onClick={voice.stop}
+                    title="Stop voice lesson"
+                    className="w-9 h-9 rounded-full bg-ink-100 text-ink-700 flex items-center justify-center hover:bg-ink-300"
+                  >
+                    ■
+                  </button>
+                )}
+                <WaveBars active={voice.state === "playing"} />
+                <span className="text-xs text-ink-500 ml-1">
+                  {voice.state === "playing"
+                    ? "🔊 Speaking…"
+                    : voice.state === "paused"
+                      ? "Paused"
+                      : !voice.supported
+                        ? "Voice not supported"
+                        : "Voice lesson"}
+                </span>
+                {voice.supported && (
+                  <div className="flex items-center gap-1 ml-auto">
+                    <span className="text-[10px] text-ink-500">Speed</span>
+                    {[0.85, 1, 1.25].map((r) => (
+                      <button
+                        key={r}
+                        onClick={() => voice.setRate(r)}
+                        className={`text-[10px] px-1.5 py-0.5 rounded ${
+                          voice.rate === r
+                            ? "bg-brand-blue text-white"
+                            : "bg-ink-100 text-ink-700 hover:bg-ink-300"
+                        }`}
+                      >
+                        {r}×
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               {loading && (
                 <div className="text-xs text-ink-500 mt-2">
@@ -192,7 +241,7 @@ export default function Lesson() {
         </div>
 
         {/* Right column: Outline + Key takeaways OR AI Tutor chat */}
-        <div className={`${tutorOpen ? "col-span-12 xl:col-span-3" : "hidden"}`}>
+        <div className={`${tutorOpen ? "col-span-12 lg:col-span-4 xl:col-span-3" : "hidden"}`}>
           <AITutorPanel
             user={user}
             topic={lesson.title}
@@ -255,22 +304,29 @@ function AITutorPanel({
       if (!r.ok) throw new Error(data?.error || "Chat failed");
       setMessages((m) => [...m, { role: "assistant", content: data.reply || "(no reply)" }]);
     } catch (err) {
-      setMessages((m) => [
-        ...m,
-        {
-          role: "assistant",
-          content:
-            "Sorry, I couldn't reach the AI service right now. Please check the server logs.",
-        },
-      ]);
-      console.error(err);
+      const raw = String(err?.message || err);
+      let friendly =
+        "Sorry, I couldn't reach the AI service right now. Please try again in a moment.";
+      if (/invalid_api_key|Incorrect API key/i.test(raw)) {
+        friendly =
+          "⚠️ The OpenAI API key is invalid or expired. Update OPENAI_API_KEY in .env and restart the dev server.";
+      } else if (/insufficient_quota|exceeded_quota/i.test(raw)) {
+        friendly =
+          "⚠️ This OpenAI account has run out of credits. Add billing or use a different key.";
+      } else if (/rate_limit/i.test(raw)) {
+        friendly = "⚠️ Hit the OpenAI rate limit. Wait a few seconds and try again.";
+      } else if (/missing/i.test(raw)) {
+        friendly = "⚠️ OPENAI_API_KEY is missing on the server. Add it to .env and restart.";
+      }
+      setMessages((m) => [...m, { role: "assistant", content: friendly }]);
+      console.error("[chat]", raw);
     } finally {
       setSending(false);
     }
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-card flex flex-col h-[calc(100vh-9rem)] sticky top-20">
+    <div className="bg-white rounded-2xl shadow-card flex flex-col h-[32rem] lg:h-[calc(100vh-9rem)] lg:sticky lg:top-20">
       <div className="flex items-center justify-between px-4 py-3 border-b border-ink-100">
         <div className="font-bold flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-emerald-500" /> AI Tutor
@@ -457,17 +513,122 @@ function Mascot() {
   );
 }
 
-function WaveBars() {
+function WaveBars({ active = false }) {
+  const heights = [6, 12, 18, 14, 22, 10, 16, 8, 18, 12, 6];
   return (
     <div className="flex items-end gap-0.5 h-6">
-      {[6, 12, 18, 14, 22, 10, 16, 8, 18, 12, 6].map((h, i) => (
+      {heights.map((h, i) => (
         <span
           key={i}
-          className="w-1 rounded-full bg-brand-blue/70"
-          style={{ height: `${h}px` }}
+          className={`w-1 rounded-full bg-brand-blue/70 ${active ? "wave-bar" : ""}`}
+          style={{
+            height: `${h}px`,
+            animationDelay: active ? `${i * 80}ms` : undefined,
+          }}
         />
       ))}
     </div>
   );
+}
+
+// ---------- Voice lesson (Web Speech API) ----------
+
+function buildLessonScript(lesson, greeting) {
+  const parts = [
+    greeting,
+    `What is ${lesson.title}?`,
+    lesson.definition,
+    ...(lesson.keyParts || []).map(
+      (p) => `${p.name}. ${p.description}`,
+    ),
+  ];
+  if (lesson.tipsFromAI) parts.push(`Tip from AI: ${lesson.tipsFromAI}`);
+  return parts.filter(Boolean).join(". ");
+}
+
+function useVoiceLesson() {
+  const supported =
+    typeof window !== "undefined" && "speechSynthesis" in window;
+  const [state, setState] = useState("idle"); // 'idle' | 'playing' | 'paused'
+  const [rate, setRateState] = useState(1);
+  const utterRef = useRef(null);
+
+  // Cleanup on unmount: stop any speech in progress
+  useEffect(() => {
+    return () => {
+      if (supported) window.speechSynthesis.cancel();
+    };
+  }, [supported]);
+
+  // Pick a pleasant English voice when available
+  function pickVoice() {
+    if (!supported) return null;
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices.length) return null;
+    // Prefer English Google/Microsoft natural voices, female if available
+    const preferred =
+      voices.find((v) => /en[-_]?(US|GB|NG)/i.test(v.lang) && /female|samantha|jenny|aria/i.test(v.name)) ||
+      voices.find((v) => /en[-_]?(US|GB|NG)/i.test(v.lang) && /google|microsoft|natural/i.test(v.name)) ||
+      voices.find((v) => /^en/i.test(v.lang)) ||
+      voices[0];
+    return preferred;
+  }
+
+  function play(script) {
+    if (!supported || !script) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(script);
+    u.lang = "en-US";
+    u.rate = rate;
+    u.pitch = 1.05;
+    const v = pickVoice();
+    if (v) u.voice = v;
+    u.onend = () => setState("idle");
+    u.onerror = () => setState("idle");
+    utterRef.current = u;
+    window.speechSynthesis.speak(u);
+    setState("playing");
+  }
+
+  function toggle(script) {
+    if (!supported) return;
+    if (state === "playing") {
+      window.speechSynthesis.pause();
+      setState("paused");
+    } else if (state === "paused") {
+      window.speechSynthesis.resume();
+      setState("playing");
+    } else {
+      play(script);
+    }
+  }
+
+  function stop() {
+    if (!supported) return;
+    window.speechSynthesis.cancel();
+    setState("idle");
+  }
+
+  function setRate(r) {
+    setRateState(r);
+    // If currently speaking, restart with the new rate from the same text
+    if (state !== "idle" && utterRef.current) {
+      const text = utterRef.current.text;
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "en-US";
+      u.rate = r;
+      u.pitch = 1.05;
+      const v = pickVoice();
+      if (v) u.voice = v;
+      u.onend = () => setState("idle");
+      u.onerror = () => setState("idle");
+      utterRef.current = u;
+      window.speechSynthesis.speak(u);
+      setState("playing");
+    }
+  }
+
+  return { supported, state, rate, toggle, stop, setRate };
 }
 

@@ -9,8 +9,51 @@ app.use(cors());
 app.use(express.json({ limit: "2mb" }));
 
 const PORT = process.env.PORT || 5001;
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4.1";
+
+// ---------- Provider configuration ----------
+// Set AI_PROVIDER in .env to one of: "openai" | "groq" | "openrouter"
+// All three speak the OpenAI Chat Completions wire format, so we just swap
+// the base URL, API key, and default model name.
+const PROVIDERS = {
+  openai: {
+    baseUrl: "https://api.openai.com/v1",
+    keyEnv: "OPENAI_API_KEY",
+    modelEnv: "OPENAI_MODEL",
+    defaultModel: "gpt-4.1",
+    extraHeaders: () => ({}),
+    supportsJsonMode: true,
+  },
+  groq: {
+    baseUrl: "https://api.groq.com/openai/v1",
+    keyEnv: "GROQ_API_KEY",
+    modelEnv: "GROQ_MODEL",
+    defaultModel: "llama-3.3-70b-versatile",
+    extraHeaders: () => ({}),
+    supportsJsonMode: true,
+  },
+  openrouter: {
+    baseUrl: "https://openrouter.ai/api/v1",
+    keyEnv: "OPENROUTER_API_KEY",
+    modelEnv: "OPENROUTER_MODEL",
+    defaultModel: "meta-llama/llama-3.1-8b-instruct:free",
+    extraHeaders: () => ({
+      "HTTP-Referer": "http://localhost:5173",
+      "X-Title": "PassPoint Demo",
+    }),
+    supportsJsonMode: false, // many free OR models ignore response_format
+  },
+};
+
+const providerName = (process.env.AI_PROVIDER || "openai").toLowerCase();
+const cfg = PROVIDERS[providerName];
+if (!cfg) {
+  console.error(
+    `[passpoint-server] Unknown AI_PROVIDER="${providerName}". Use openai | groq | openrouter.`,
+  );
+  process.exit(1);
+}
+const API_KEY = process.env[cfg.keyEnv];
+const MODEL = process.env[cfg.modelEnv] || cfg.defaultModel;
 
 const SYSTEM_PROMPT = `You are PassPoint AI, a friendly, patient AI tutor for African students from Nursery to Senior Secondary School (Nigeria curriculum: WAEC, NECO, JAMB, BECE, etc.).
 
@@ -23,21 +66,35 @@ Rules:
 - If asked something outside the curriculum, politely steer back to learning.
 - Keep responses concise (around 120-200 words) unless the student asks for more detail.`;
 
+async function callProvider({ payload }) {
+  const r = await fetch(`${cfg.baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${API_KEY}`,
+      "Content-Type": "application/json",
+      ...cfg.extraHeaders(),
+    },
+    body: JSON.stringify(payload),
+  });
+  return r;
+}
+
 app.get("/api/health", (_req, res) => {
   res.json({
     ok: true,
-    provider: process.env.AI_PROVIDER || "openai",
-    model: OPENAI_MODEL,
-    hasKey: Boolean(OPENAI_API_KEY),
+    provider: providerName,
+    model: MODEL,
+    baseUrl: cfg.baseUrl,
+    hasKey: Boolean(API_KEY),
+    keyEnvVar: cfg.keyEnv,
   });
 });
 
 app.post("/api/chat", async (req, res) => {
   try {
-    if (!OPENAI_API_KEY) {
+    if (!API_KEY) {
       return res.status(500).json({
-        error:
-          "OPENAI_API_KEY missing on server. Add it to .env and restart the server.",
+        error: `${cfg.keyEnv} missing on server. Add it to .env and restart.`,
       });
     }
 
@@ -56,27 +113,20 @@ app.post("/api/chat", async (req, res) => {
       ? `${SYSTEM_PROMPT}\n\nContext for this conversation -> ${contextLine}`
       : SYSTEM_PROMPT;
 
-    const payload = {
-      model: OPENAI_MODEL,
-      messages: [
-        { role: "system", content: finalSystem },
-        ...messages.map((m) => ({ role: m.role, content: m.content })),
-      ],
-      temperature: 0.6,
-    };
-
-    const r = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
+    const r = await callProvider({
+      payload: {
+        model: MODEL,
+        messages: [
+          { role: "system", content: finalSystem },
+          ...messages.map((m) => ({ role: m.role, content: m.content })),
+        ],
+        temperature: 0.6,
       },
-      body: JSON.stringify(payload),
     });
 
     if (!r.ok) {
       const errText = await r.text();
-      console.error("OpenAI error:", errText);
+      console.error(`[${providerName}] chat error:`, errText);
       return res.status(r.status).json({ error: errText });
     }
 
@@ -91,8 +141,8 @@ app.post("/api/chat", async (req, res) => {
 
 app.post("/api/lesson", async (req, res) => {
   try {
-    if (!OPENAI_API_KEY) {
-      return res.status(500).json({ error: "OPENAI_API_KEY missing" });
+    if (!API_KEY) {
+      return res.status(500).json({ error: `${cfg.keyEnv} missing` });
     }
 
     const { classLevel, subject, topic } = req.body || {};
@@ -113,24 +163,21 @@ Return JSON with this exact shape:
   "outline": ["What is X?", "Types of X", "..."]
 }
 
-Only return valid JSON, no markdown.`;
+Only return valid JSON, no markdown, no preamble.`;
 
-    const r = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.5,
-        response_format: { type: "json_object" },
-      }),
-    });
+    const payload = {
+      model: MODEL,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.5,
+    };
+    if (cfg.supportsJsonMode) {
+      payload.response_format = { type: "json_object" };
+    }
+
+    const r = await callProvider({ payload });
 
     if (!r.ok) {
       const errText = await r.text();
@@ -138,7 +185,19 @@ Only return valid JSON, no markdown.`;
     }
 
     const data = await r.json();
-    const raw = data.choices?.[0]?.message?.content || "{}";
+    let raw = data.choices?.[0]?.message?.content || "{}";
+
+    // Some providers (notably OpenRouter free models) wrap JSON in markdown
+    // code fences or add a preamble. Strip both before parsing.
+    raw = raw.trim();
+    const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fenced) raw = fenced[1].trim();
+    const firstBrace = raw.indexOf("{");
+    const lastBrace = raw.lastIndexOf("}");
+    if (firstBrace > -1 && lastBrace > firstBrace) {
+      raw = raw.slice(firstBrace, lastBrace + 1);
+    }
+
     let lesson;
     try {
       lesson = JSON.parse(raw);
@@ -154,5 +213,7 @@ Only return valid JSON, no markdown.`;
 
 app.listen(PORT, () => {
   console.log(`[passpoint-server] running on http://localhost:${PORT}`);
-  console.log(`[passpoint-server] provider=openai model=${OPENAI_MODEL}`);
+  console.log(
+    `[passpoint-server] provider=${providerName} model=${MODEL} baseUrl=${cfg.baseUrl} hasKey=${Boolean(API_KEY)}`,
+  );
 });
