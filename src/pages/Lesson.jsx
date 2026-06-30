@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useUser } from "../store/user";
 import { ArrowLeftIcon, ArrowRightIcon, MicIcon, CloseIcon } from "../components/icons";
@@ -32,6 +32,14 @@ export default function Lesson() {
   const tele = useTeleprompter(sentences, {
     preferredGender: subject.voiceGender || "any",
     classLevel: lesson?.classLevel,
+    onSentenceEnd: async ({ text }) => {
+      // Only the kindergarten flow runs the verify mini-game — older
+      // students don't pause mid-lesson to chant words back.
+      if (!isKindergarten) return;
+      const target = extractRepeatTarget(text);
+      if (!target) return;
+      await runVerify(target);
+    },
   });
 
   const sections = lesson?.sections || [];
@@ -62,28 +70,273 @@ export default function Lesson() {
   // shows a slide-over panel with the avatar + controls.
   const [presenterOpen, setPresenterOpen] = useState(false);
 
+  // Direct voice convo state (Kindergarten only): the kid just talks,
+  // we send the transcript to /api/chat, then the AI's reply is read
+  // aloud while showing as a friendly bubble at the bottom of the slide.
+  const [aiReply, setAiReply] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiSpeaking, setAiSpeaking] = useState(false);
+  const lastUserTextRef = useRef("");
+
+  // Verify state: "Say it with me. Apple." → the teacher waits for the
+  // child to actually say "Apple", up to MAX_VERIFY_ATTEMPTS times.
+  const [verifyTarget, setVerifyTarget] = useState(null); // displayed in UI
+  const [verifyAttempt, setVerifyAttempt] = useState(0);
+  // The actual matching is done off-state via refs so it lives across
+  // promise resolutions without re-render races.
+  const verifyTargetRef = useRef(null);  // lowercased word we're listening for
+  const verifyResolverRef = useRef(null); // resolve(true|false) when heard / timed out
+
+  const isKindergarten = lesson?.classLevel === "Kindergarten";
+
   const voiceCmd = useSpeechRecognition({
     continuous: true,
     interimResults: true,
     onCommand: (lower) => {
       if (!lower) return;
-      const tail = lower.slice(-40);
-      if (
-        /\b(i have a question|ask (a |the )?question|wait,? question)\b/.test(
-          tail,
-        )
-      ) {
+      const tail = lower.slice(-80);
+
+      // Verify mode wins over everything else — when the teacher just
+      // asked the child to repeat a word, the only thing we care about
+      // is whether they said it.
+      if (verifyTargetRef.current) {
+        const target = verifyTargetRef.current;
+        if (tail.includes(target)) {
+          verifyResolverRef.current?.(true);
+        }
+        return;
+      }
+
+      if (/\b(pause|stop|wait|hold on)\b/.test(tail)) {
+        if (tele.state === "playing") tele.pause();
+        return;
+      }
+      if (/\b(continue|resume|go on|carry on|keep going|play)\b/.test(tail)) {
+        if (tele.state === "paused" || tele.state === "idle") tele.play();
+        return;
+      }
+
+      // Kindergarten: anything substantive becomes a question to the AI
+      // — no buttons, no modal, just talk. Older students still use the
+      // explicit "I have a question" trigger so they don't drown out
+      // each other in a classroom.
+      if (isKindergarten) {
+        const text = tail.trim();
+        if (text.length >= 4 && /[a-z]/.test(text) && text !== lastUserTextRef.current) {
+          askAIDirect(text);
+        }
+      } else if (/\b(i have a question|ask (a |the )?question|wait,? question)\b/.test(tail)) {
         if (tele.state === "playing") tele.pause();
         setAskOpen(true);
-      } else if (/\b(pause|stop|wait|hold on)\b/.test(tail)) {
-        if (tele.state === "playing") tele.pause();
-      } else if (
-        /\b(continue|resume|go on|carry on|keep going|play)\b/.test(tail)
-      ) {
-        if (tele.state === "paused" || tele.state === "idle") tele.play();
       }
     },
   });
+
+  // ─── Direct AI chat used by the kindergarten voice loop ────────────
+  async function askAIDirect(text) {
+    if (aiBusy) return;
+    lastUserTextRef.current = text;
+    if (tele.state === "playing") tele.pause();
+    voiceCmd.stop(); // mute mic while we think + speak
+    setAiBusy(true);
+    setAiReply("…");
+    try {
+      const r = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: text }],
+          context: {
+            classLevel: lesson.classLevel,
+            subject: subject.name,
+            topic: topic.title,
+            // Tell the AI exactly which letter the child is on right
+            // now so its reply stays in scope. Without this, replies
+            // wander to other letters (e.g. user is on K but AI
+            // suggests starting with A).
+            currentLetter: activeSection?.visual?.letter,
+            currentWord: activeSection?.visual?.word,
+          },
+        }),
+      });
+      const data = await r.json();
+      const reply = data?.reply || "Hmm, can you say that again?";
+      setAiReply(reply);
+      speakAIReply(reply);
+    } catch (err) {
+      console.warn("[direct-voice] askAIDirect failed:", err);
+      setAiReply("Oops! Try again.");
+      setAiBusy(false);
+    }
+  }
+
+  function speakAIReply(text) {
+    if (!text || !("speechSynthesis" in window)) {
+      setAiBusy(false);
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "en-US";
+    u.rate = 0.95;
+    u.pitch = subject.voiceGender === "female" ? 1.15 : 0.95;
+    u.onstart = () => setAiSpeaking(true);
+    u.onend = () => {
+      setAiSpeaking(false);
+      setAiBusy(false);
+      // After the teacher finishes speaking, re-open the mic so the
+      // child can answer naturally. Tiny delay avoids the synthesis
+      // tail being picked up as input.
+      setTimeout(() => {
+        if (voiceCmd.supported && isKindergarten) voiceCmd.start();
+      }, 350);
+    };
+    u.onerror = () => {
+      setAiSpeaking(false);
+      setAiBusy(false);
+    };
+    window.speechSynthesis.speak(u);
+  }
+
+  // ─── Verify "Say it with me, X" mini-game ──────────────────────────
+  // Wired from useTeleprompter via the onSentenceEnd hook. Listens for
+  // up to MAX_VERIFY_ATTEMPTS for the child to repeat the target word.
+
+  // Speak a phrase and wait for the audio to finish. Used to chain
+  // praise/retry prompts in sequence without overlap.
+  function speakAndWait(text) {
+    return new Promise((resolve) => {
+      if (!text || !("speechSynthesis" in window)) return resolve();
+      // Mute the mic for the duration so our own prompt doesn't loop
+      // back in as the child's "answer".
+      if (voiceCmd.supported && voiceCmd.listening) voiceCmd.stop();
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "en-US";
+      u.rate = 0.95;
+      u.pitch = subject.voiceGender === "female" ? 1.15 : 0.95;
+      u.onstart = () => setAiSpeaking(true);
+      u.onend = () => {
+        setAiSpeaking(false);
+        resolve();
+      };
+      u.onerror = () => {
+        setAiSpeaking(false);
+        resolve();
+      };
+      window.speechSynthesis.speak(u);
+    });
+  }
+
+  // One round of listening for the target word. Resolves true if the
+  // child's mic transcript contains the word within the timeout.
+  function listenForWord(targetLower, timeoutMs = 5000) {
+    return new Promise((resolve) => {
+      verifyTargetRef.current = targetLower;
+      // Make sure the mic is on
+      if (voiceCmd.supported && !voiceCmd.listening) voiceCmd.start();
+      const timer = setTimeout(() => {
+        verifyTargetRef.current = null;
+        verifyResolverRef.current = null;
+        resolve(false);
+      }, timeoutMs);
+      verifyResolverRef.current = (matched) => {
+        clearTimeout(timer);
+        verifyTargetRef.current = null;
+        verifyResolverRef.current = null;
+        resolve(matched);
+      };
+    });
+  }
+
+  const MAX_VERIFY_ATTEMPTS = 3;
+  const PRAISES = ["Wow, great job!", "Perfect!", "Excellent!", "You did it!"];
+  const RETRIES = [
+    "Almost! Try again. Say",
+    "Let's try one more time. Say",
+    "Nearly there! Can you say",
+  ];
+
+  async function runVerify(rawTarget) {
+    const targetWord = rawTarget.trim();
+    const targetLower = targetWord.toLowerCase();
+    setVerifyTarget(targetWord);
+    setVerifyAttempt(1);
+
+    for (let attempt = 1; attempt <= MAX_VERIFY_ATTEMPTS; attempt++) {
+      setVerifyAttempt(attempt);
+      if (attempt > 1) {
+        const prompt = RETRIES[(attempt - 2) % RETRIES.length];
+        await speakAndWait(`${prompt} ${targetWord}.`);
+      }
+      const heard = await listenForWord(targetLower, 5000);
+      if (heard) {
+        const praise = PRAISES[Math.floor(Math.random() * PRAISES.length)];
+        await speakAndWait(`${praise} ${targetWord}!`);
+        setVerifyTarget(null);
+        setVerifyAttempt(0);
+        return true;
+      }
+    }
+    await speakAndWait(`That's okay. Let's keep going.`);
+    setVerifyTarget(null);
+    setVerifyAttempt(0);
+    return false;
+  }
+
+  // "Say it with me. Apple." → "Apple"
+  // "Now let's clap. A, A, A!" → "A"  (alphabet's call-and-response line)
+  function extractRepeatTarget(text) {
+    if (!text) return null;
+    let m = text.match(/say it with me[.,!]?\s*([A-Za-z][A-Za-z\s]+?)[.!?]/i);
+    if (m) return m[1].trim();
+    m = text.match(/now let's clap[.,!]?\s*([A-Za-z])(?:,\s*\1){1,}/i);
+    if (m) return m[1].trim();
+    return null;
+  }
+
+  // ─── Continuous-mic management for Kindergarten ────────────────────
+  // Auto-start mic when the lesson opens; pause it while the teacher
+  // teleprompter is speaking (otherwise the mic picks up its own voice).
+  //
+  // Verify mode owns the mic exclusively — listenForWord() and
+  // speakAndWait() drive it directly so this effect MUST get out of
+  // their way once a target is set, otherwise we fight ourselves and
+  // either drop the child's reply or echo our own prompt back in.
+  useEffect(() => {
+    if (!isKindergarten || !voiceCmd.supported) return;
+    if (verifyTarget) return;
+    if (tele.state === "playing" || aiBusy || aiSpeaking) {
+      if (voiceCmd.listening) voiceCmd.stop();
+    } else {
+      if (!voiceCmd.listening) voiceCmd.start();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tele.state, aiBusy, aiSpeaking, isKindergarten, voiceCmd.supported, verifyTarget]);
+
+  // Clear the AI reply bubble a few seconds after the AI stops talking
+  useEffect(() => {
+    if (!aiReply || aiSpeaking || aiBusy) return;
+    const t = setTimeout(() => setAiReply(""), 6000);
+    return () => clearTimeout(t);
+  }, [aiReply, aiSpeaking, aiBusy]);
+
+  // ─── Preload next two letters' photo + video assets ────────────────
+  // The image/video API caches on the server — these warm-up fetches
+  // mean the next slide is INSTANT when the kid gets there.
+  useEffect(() => {
+    if (!isKindergarten) return;
+    const upcoming = sections.slice(activeSlideIdx + 1, activeSlideIdx + 3);
+    upcoming.forEach((s) => {
+      const v = s?.visual;
+      if (v?.type !== "kg-letter" || !v.word) return;
+      const body = JSON.stringify({ word: v.word, hint: v.photoHint });
+      const opts = { method: "POST", headers: { "Content-Type": "application/json" }, body };
+      fetch("/api/image", opts).catch(() => {});
+      fetch("/api/video", opts).catch(() => {});
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSlideIdx, lesson?.id]);
 
   useEffect(() => {
     tele.stop();
@@ -293,6 +546,10 @@ export default function Lesson() {
                 subject={subject.name}
                 topic={topic.title}
                 onSentenceClick={(globalIdx) => tele.jumpTo(globalIdx)}
+                onReplay={() => {
+                  const startIdx = sectionStarts[activeSection?.id];
+                  if (startIdx >= 0) tele.jumpTo(startIdx);
+                }}
               />
             ) : (
               <LessonSlide
@@ -310,6 +567,60 @@ export default function Lesson() {
           </div>
         </div>
       </div>
+
+      {/* Direct-voice listening badge — kindergarten only, top-center */}
+      {isKindergarten && voiceCmd.supported && (
+        <div className="absolute top-16 sm:top-20 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
+          <div
+            className={[
+              "flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider shadow-lg backdrop-blur",
+              verifyTarget
+                ? "bg-amber-400/95 text-ink-900"
+                : voiceCmd.listening
+                  ? "bg-emerald-500/95 text-white"
+                  : aiSpeaking || aiBusy
+                    ? "bg-rose-500/95 text-white"
+                    : "bg-white/90 text-ink-700",
+            ].join(" ")}
+          >
+            <span
+              className={[
+                "w-2 h-2 rounded-full",
+                verifyTarget
+                  ? "bg-white animate-pulse"
+                  : voiceCmd.listening
+                    ? "bg-white animate-ping"
+                    : aiSpeaking
+                      ? "bg-white animate-pulse"
+                      : "bg-ink-400",
+              ].join(" ")}
+            />
+            {verifyTarget
+              ? `Your turn! Say "${verifyTarget}" (${verifyAttempt}/${MAX_VERIFY_ATTEMPTS})`
+              : aiBusy
+                ? "Thinking…"
+                : aiSpeaking
+                  ? "Aunty Adesua is speaking"
+                  : voiceCmd.listening
+                    ? "Listening — just talk!"
+                    : "Mic off"}
+          </div>
+        </div>
+      )}
+
+      {/* Inline AI reply bubble — bottom of stage, kindergarten only */}
+      {isKindergarten && aiReply && (
+        <div className="absolute bottom-24 sm:bottom-28 left-1/2 -translate-x-1/2 z-30 max-w-xl px-4 pointer-events-none">
+          <div className="bg-white shadow-2xl rounded-3xl px-5 py-3 border border-rose-100 animate-[fadeIn_0.25s_ease-out]">
+            <div className="text-[10px] uppercase tracking-wider font-bold text-rose-500 mb-0.5">
+              Aunty Adesua
+            </div>
+            <div className="text-sm sm:text-base text-ink-900 leading-snug whitespace-pre-wrap">
+              {aiReply}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Mobile presenter slide-over panel */}
       {presenterOpen && (

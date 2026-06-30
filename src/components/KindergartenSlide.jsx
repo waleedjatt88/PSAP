@@ -3,11 +3,14 @@
 // visual; the heading and active sentence sit on top in big, friendly
 // type. Each visual type has its own scene:
 //
-//   { type: "kg-letter",  letter, word, emoji, color }   — A for Apple
+//   { type: "kg-letter",  letter, word, emoji, photoHint? }
+//                                              — A for Apple (real DALL-E photo)
 //   { type: "kg-number",  n, word, emoji, color }        — counting
 //   { type: "kg-object",  name, emoji, color }           — what is this?
 //   { type: "kg-shape",   name, shape, emoji, color }    — circle/square/...
 //   { type: "kg-banner",  icon, label, color }           — intro / outro
+
+import LetterPhotoScene from "./LetterPhotoScene.jsx";
 
 export default function KindergartenSlide({
   section,
@@ -18,6 +21,7 @@ export default function KindergartenSlide({
   subject,
   topic,
   onSentenceClick,
+  onReplay,
 }) {
   if (!section) return null;
   const visual = section.visual || {};
@@ -57,7 +61,7 @@ export default function KindergartenSlide({
 
       {/* Main scene — fills the rest of the slide */}
       <div className="flex-1 relative z-10 flex items-center justify-center min-h-0 px-6 py-2">
-        <Scene visual={visual} />
+        <Scene visual={visual} onReplay={onReplay} />
       </div>
 
       {/* Caption bubble at the bottom — shows the active sentence in big,
@@ -79,10 +83,12 @@ export default function KindergartenSlide({
 // ─────────────────────────────────────────────────────────────────────
 // Per-visual scenes — each is its own little world.
 
-function Scene({ visual }) {
+function Scene({ visual, onReplay }) {
   switch (visual.type) {
     case "kg-letter":
-      return <LetterScene {...visual} />;
+      // Real photo + video scene; "Talk to me" was removed in favor of
+      // the always-on direct voice loop wired in pages/Lesson.jsx.
+      return <LetterPhotoScene {...visual} onReplay={onReplay} />;
     case "kg-number":
       return <NumberScene {...visual} />;
     case "kg-object":

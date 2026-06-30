@@ -27,7 +27,7 @@ export default function Dashboard() {
             Good Morning, {user?.name?.split(" ")[0] || "Student"}
           </h1>
           <p className="text-ink-500 mt-1">
-            You have <strong>2 lessons</strong> ready for today.
+            You have <strong>{SUBJECTS.length} lessons</strong> ready for today.
           </p>
           <Link
             to="/subjects"
@@ -62,7 +62,7 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Today's lessons — the only two topics in the demo */}
+      {/* Today's lessons — every subject in the demo gets its own card */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-bold">Today's Lessons</h2>

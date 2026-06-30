@@ -80,6 +80,11 @@ export default function AskAIModal({
       setMessages([{ role: "assistant", content: initialGreeting, isGreeting: true }]);
       setInput("");
       setTimeout(() => inputRef.current?.focus(), 80);
+      // For kindergarten: speak the greeting AND start the mic immediately
+      // so the child can just talk — no buttons between turns.
+      if (classLevel === "Kindergarten") {
+        setTimeout(() => speakAnswer(initialGreeting), 200);
+      }
     } else {
       speechRec.abort();
       if ("speechSynthesis" in window) window.speechSynthesis.cancel();
@@ -129,6 +134,20 @@ export default function AskAIModal({
     u.pitch = preferredGender === "female" ? 1.1 : 0.95;
     const v = pickVoice();
     if (v) u.voice = v;
+    // For kindergarten (ages 3-7) we want a real back-and-forth: after
+    // the teacher finishes speaking, auto-restart the mic so the child
+    // can just talk. They never tap a button between turns. Older
+    // students keep the manual mic flow (they're often in quiet rooms).
+    if (classLevel === "Kindergarten" && speechRec.supported) {
+      u.onend = () => {
+        // Tiny pause so the synthesis tail doesn't get picked up as input.
+        setTimeout(() => {
+          // Only restart if the modal is still open and we're not already
+          // sending — guards against ghost mic sessions after Close.
+          if (!sending) speechRec.start();
+        }, 350);
+      };
+    }
     window.speechSynthesis.speak(u);
   }
 

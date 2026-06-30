@@ -1,6 +1,7 @@
-// Demo curriculum — intentionally narrow.
-// Two subjects, one topic each, each topic pointing at a static lesson
-// in /src/data/lessons/. The AI presents these lessons word-for-word.
+// Demo curriculum — kindergarten tier (Letters, Numbers, What Is This?,
+// Maths, Science) plus JSS 1 tier (Mathematics, Basic Science). Each
+// subject points at one static lesson in /src/data/lessons/ and the AI
+// presents those lessons word-for-word.
 
 export const SUBJECTS = [
   // ── Kindergarten tier (mostly visual, slow narration) ──────────────

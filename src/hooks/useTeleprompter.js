@@ -21,7 +21,18 @@ export default function useTeleprompter(sentences, options = {}) {
   const {
     preferredGender = "any",
     classLevel,
+    onSentenceEnd, // async ({ idx, text }) => boolean | void
+                   // If your callback returns a Promise we await it before
+                   // moving to the next sentence — gives consumers a hook
+                   // to run a child-verification mini-flow ("say it with
+                   // me!") between sentences without having to fight the
+                   // teleprompter for control of the audio.
   } = options;
+
+  const onSentenceEndRef = useRef(onSentenceEnd);
+  useEffect(() => {
+    onSentenceEndRef.current = onSentenceEnd;
+  }, [onSentenceEnd]);
 
   const [state, setState] = useState("idle"); // 'idle' | 'playing' | 'paused'
   const [currentIdx, setCurrentIdx] = useState(-1);
@@ -193,6 +204,18 @@ export default function useTeleprompter(sentences, options = {}) {
         // Try to keep going on the next sentence rather than stalling.
       }
       if (genRef.current !== myGen) return;
+
+      // Hook: give the consumer a chance to interject (e.g. ask the
+      // child to repeat the word back). We await any returned promise.
+      if (onSentenceEndRef.current) {
+        try {
+          await onSentenceEndRef.current({ idx, text: list[idx] });
+        } catch (err) {
+          console.warn("[teleprompter] onSentenceEnd error:", err?.message || err);
+        }
+        if (genRef.current !== myGen) return; // consumer may have stopped us
+      }
+
       idx += 1;
       tick();
     };

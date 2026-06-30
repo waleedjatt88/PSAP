@@ -24,7 +24,13 @@ export default async function handler(req, res) {
   try {
     const { messages = [], context = {} } = req.body || {};
     const finalSystem = buildSystemPrompt(context);
-    const lockedToLesson = Boolean(context.lessonContent);
+    // JSS/SS lessons run in strict JSON-envelope mode so we can enforce
+    // topic scope. Kindergarten lessons (ages 3-7) use a plain-text
+    // "Aunty Adesua" voice instead — the JSON envelope would feel cold
+    // and the model would fight the format. So lock-to-lesson is only
+    // enabled when we have lessonContent AND we're NOT kindergarten.
+    const isKindergarten = context.classLevel === "Kindergarten";
+    const lockedToLesson = Boolean(context.lessonContent) && !isKindergarten;
     const cfg = getProviderConfig();
 
     // Lower temperature when locked to a lesson — strict rule following

@@ -9,6 +9,9 @@ import lessonHandler from "../api/lesson.js";
 import gradeHandler from "../api/grade.js";
 import reportHandler from "../api/report.js";
 import ttsHandler from "../api/tts.js";
+import imageHandler from "../api/image.js";
+import videoHandler from "../api/video.js";
+import imagesHandler from "../api/images.js";
 
 dotenv.config();
 
@@ -25,10 +28,27 @@ app.post("/api/lesson", (req, res) => lessonHandler(req, res));
 app.post("/api/grade", (req, res) => gradeHandler(req, res));
 app.post("/api/report", (req, res) => reportHandler(req, res));
 app.post("/api/tts", (req, res) => ttsHandler(req, res));
+app.post("/api/image", (req, res) => imageHandler(req, res));
+app.post("/api/video", (req, res) => videoHandler(req, res));
+app.post("/api/images", (req, res) => imagesHandler(req, res));
 
-const PORT = process.env.PORT || 5001;
-app.listen(PORT, () => {
+const PORT = process.env.PORT || 5050;
+const server = app.listen(PORT, () => {
   const provider = (process.env.AI_PROVIDER || "openai").toLowerCase();
   console.log(`[passpoint-server] running on http://localhost:${PORT}`);
   console.log(`[passpoint-server] provider=${provider}`);
+});
+// Without this, a port-in-use error silently exits with code 0 and the
+// `concurrently` log just says "exited" with no clue why. Surface it.
+server.on("error", (err) => {
+  if (err.code === "EADDRINUSE") {
+    console.error(
+      `[passpoint-server] ERROR: port ${PORT} is already in use. ` +
+        `Either another process is bound to it (use \`netstat -ano | findstr :${PORT}\` ` +
+        `then \`taskkill /F /PID <pid>\`), or change PORT in passpoint-demo/.env.`,
+    );
+  } else {
+    console.error("[passpoint-server] ERROR:", err);
+  }
+  process.exit(1);
 });
