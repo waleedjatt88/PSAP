@@ -28,41 +28,44 @@ export default function LetterPhotoScene({
   videoHint, // NEW — separate Pexels query for videos (different index)
   onReplay,
 }) {
-  const [photoUrl, setPhotoUrl] = useState(null);
+  // We fetch a SET of real photos for the same word and auto-rotate
+  // them so the child sees several real apples / cats / kites without
+  // having to tap anything. The strict "word stays the same" rule keeps
+  // the scene in-scope by design.
+  const [photoSet, setPhotoSet] = useState([]); // [{url, thumb, credit}]
+  const [photoIdx, setPhotoIdx] = useState(0);
   const [videoUrl, setVideoUrl] = useState(null);
-  const [credit, setCredit] = useState(null);
-  const [source, setSource] = useState(null);
   const [status, setStatus] = useState("loading"); // loading | ready | error
   const [mode, setMode] = useState("photo");
   const [bumpKey, setBumpKey] = useState(0);
-  // "Show more" gallery — fetched on demand. Stays within scope (same word).
-  const [galleryOpen, setGalleryOpen] = useState(false);
-  const [gallery, setGallery] = useState(null); // null | "loading" | Photo[]
   const videoRef = useRef(null);
   const requestedKey = useRef(null);
+
+  const currentPhoto = photoSet[photoIdx] || null;
 
   useEffect(() => {
     const key = `${word}::${photoHint || ""}::${videoHint || ""}`;
     if (requestedKey.current === key) return;
     requestedKey.current = key;
     setStatus("loading");
-    setPhotoUrl(null);
+    setPhotoSet([]);
+    setPhotoIdx(0);
     setVideoUrl(null);
-    setCredit(null);
-    setSource(null);
     setMode("photo");
 
-    const photoBody = JSON.stringify({ word, hint: photoHint });
+    const photoBody = JSON.stringify({ word, hint: photoHint, count: 6 });
     const videoBody = JSON.stringify({ word, hint: videoHint || photoHint });
 
-    const photoP = fetch("/api/image", {
+    // /api/images returns up to N photos for the same word so the scene
+    // can auto-rotate without leaving scope.
+    const photosP = fetch("/api/images", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: photoBody,
     })
       .then((r) => r.json())
-      .then((d) => (d?.url ? d : null))
-      .catch(() => null);
+      .then((d) => (Array.isArray(d?.photos) ? d.photos : []))
+      .catch(() => []);
 
     const videoP = fetch("/api/video", {
       method: "POST",
@@ -73,25 +76,33 @@ export default function LetterPhotoScene({
       .then((d) => (d?.url ? d : null))
       .catch(() => null);
 
-    Promise.all([photoP, videoP]).then(([p, v]) => {
+    Promise.all([photosP, videoP]).then(([ps, v]) => {
       if (requestedKey.current !== key) return;
-      if (!p && !v) {
+      if (!ps.length && !v) {
         setStatus("error");
         return;
       }
-      if (p) {
-        setPhotoUrl(p.url);
-        setCredit(p.credit || null);
-        setSource(p.source || null);
-      }
+      if (ps.length) setPhotoSet(ps);
       if (v) {
         setVideoUrl(v.url);
-        // Auto-prefer video if we got one — the kid loves motion
+        // Auto-prefer video if we got one — kids love motion
         setMode("video");
       }
       setStatus("ready");
     });
   }, [word, photoHint, videoHint]);
+
+  // Auto-rotate through the photo set so the child sees several real
+  // photos passively. Rotation pauses while in video mode (video is
+  // looping on its own) and while loading.
+  useEffect(() => {
+    if (mode === "video") return;
+    if (photoSet.length < 2) return;
+    const id = setInterval(() => {
+      setPhotoIdx((i) => (i + 1) % photoSet.length);
+    }, 3500);
+    return () => clearInterval(id);
+  }, [mode, photoSet.length]);
 
   // Replay = restart the video AND retrigger the card entrance
   useEffect(() => {
@@ -112,30 +123,6 @@ export default function LetterPhotoScene({
     onReplay?.();
   }
 
-  async function openGallery() {
-    setGalleryOpen(true);
-    if (Array.isArray(gallery) && gallery.length) return; // already loaded
-    setGallery("loading");
-    try {
-      const r = await fetch("/api/images", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ word, hint: photoHint, count: 8 }),
-      });
-      const data = await r.json();
-      if (Array.isArray(data?.photos) && data.photos.length) {
-        setGallery(data.photos);
-      } else {
-        setGallery([]);
-      }
-    } catch {
-      setGallery([]);
-    }
-  }
-  function closeGallery() {
-    setGalleryOpen(false);
-  }
-
   return (
     <div className="relative w-full h-full flex flex-col md:flex-row items-stretch justify-center gap-3 sm:gap-5 md:gap-6 px-3 sm:px-5 md:px-6 py-2 sm:py-3">
       <LetterCard letter={letter} word={word} bumpKey={bumpKey} />
@@ -143,31 +130,27 @@ export default function LetterPhotoScene({
         word={word}
         emoji={emoji}
         status={status}
-        photoUrl={photoUrl}
+        photoSet={photoSet}
+        photoIdx={photoIdx}
+        currentPhoto={currentPhoto}
         videoUrl={videoUrl}
         videoRef={videoRef}
-        credit={credit}
-        source={source}
         bumpKey={bumpKey}
         mode={mode}
         onSetMode={setMode}
         onTap={celebrate}
         onReplay={handleReplay}
-        onShowMore={openGallery}
-        onPhotoError={() => setPhotoUrl(null)}
+        onPickPhoto={(i) => setPhotoIdx(i)}
+        onPhotoError={() => {
+          // Skip this photo — advance to the next in the set
+          setPhotoSet((set) => set.filter((_, i) => i !== photoIdx));
+          setPhotoIdx((i) => Math.max(0, i - 1));
+        }}
         onVideoError={() => {
           setVideoUrl(null);
           setMode("photo");
         }}
       />
-
-      {galleryOpen && (
-        <GalleryOverlay
-          word={word}
-          photos={gallery}
-          onClose={closeGallery}
-        />
-      )}
     </div>
   );
 }
@@ -233,26 +216,28 @@ function LetterCard({ letter, word, bumpKey }) {
   );
 }
 
-// ─── Right: media card with Photo ↔ Video toggle ─────────────────────
+// ─── Right: media card — auto-rotating photo carousel + optional video ─
 function MediaCard({
   word,
   emoji,
   status,
-  photoUrl,
+  photoSet,
+  photoIdx,
+  currentPhoto,
   videoUrl,
   videoRef,
-  credit,
-  source,
   bumpKey,
   mode,
   onSetMode,
   onTap,
   onReplay,
-  onShowMore,
+  onPickPhoto,
   onPhotoError,
   onVideoError,
 }) {
   const showingVideo = mode === "video" && videoUrl;
+  const credit = currentPhoto?.credit;
+
   return (
     <div
       key={`m-${bumpKey}`}
@@ -263,20 +248,19 @@ function MediaCard({
 
       {status !== "loading" && (
         <>
-          {/* Photo — always rendered behind so it's painted instantly */}
-          {photoUrl && (
+          {/* Current photo — cross-fades when photoIdx changes thanks
+              to the keyed image (React re-mounts → CSS fade-in). */}
+          {currentPhoto && (
             <img
-              src={photoUrl}
+              key={`p-${photoIdx}-${currentPhoto.url}`}
+              src={currentPhoto.url}
               alt={`A ${word}`}
-              className="absolute inset-0 w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover animate-[fadeIn_0.35s_ease-out]"
               draggable={false}
               onError={onPhotoError}
             />
           )}
-          {/* Video — only mounted (and overlaying photo) when the user
-              has selected "video" mode. Mounting/unmounting (instead of
-              hiding) ensures the video pauses and frees bandwidth when
-              the kid is on photo mode. */}
+          {/* Video — overlays photo when in video mode */}
           {showingVideo && (
             <video
               ref={videoRef}
@@ -290,7 +274,7 @@ function MediaCard({
               onError={onVideoError}
             />
           )}
-          {!photoUrl && !videoUrl && (
+          {!currentPhoto && !videoUrl && (
             <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-white to-ink-100">
               <div className="text-[10rem] leading-none">{emoji}</div>
             </div>
@@ -303,38 +287,23 @@ function MediaCard({
             </div>
           )}
 
-          <div className="absolute top-3 right-3 flex flex-col gap-2 z-10">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onReplay();
-              }}
-              className="flex items-center gap-1.5 bg-white/95 backdrop-blur text-ink-900 font-bold rounded-full pl-1.5 pr-3 py-1.5 shadow-xl hover:bg-amber-50 active:scale-[0.97] transition text-xs sm:text-sm"
-              title="Watch this again"
-            >
-              <span className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center text-base">
-                ↻
-              </span>
-              <span className="hidden sm:inline">Watch again</span>
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onShowMore?.();
-              }}
-              className="flex items-center gap-1.5 bg-white/95 backdrop-blur text-ink-900 font-bold rounded-full pl-1.5 pr-3 py-1.5 shadow-xl hover:bg-blue-50 active:scale-[0.97] transition text-xs sm:text-sm"
-              title={`See more photos of a ${word.toLowerCase()}`}
-            >
-              <span className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-base">
-                🖼️
-              </span>
-              <span className="hidden sm:inline">More {word.toLowerCase()}s</span>
-            </button>
-          </div>
+          {/* Watch again — top-right, single button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onReplay();
+            }}
+            className="absolute top-3 right-3 flex items-center gap-1.5 bg-white/95 backdrop-blur text-ink-900 font-bold rounded-full pl-1.5 pr-3 py-1.5 shadow-xl hover:bg-amber-50 active:scale-[0.97] transition text-xs sm:text-sm z-10"
+            title="Watch this again"
+          >
+            <span className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center text-base">
+              ↻
+            </span>
+            <span className="hidden sm:inline">Watch again</span>
+          </button>
 
-          {/* Photo ↔ Video toggle — bottom-left. Only shown when both
-              are available, so it doesn't lie about modes you can't pick. */}
-          {photoUrl && videoUrl && (
+          {/* Photo ↔ Video toggle — bottom-left, only when both exist */}
+          {photoSet.length > 0 && videoUrl && (
             <div
               className="absolute bottom-2 left-2 flex bg-white/95 backdrop-blur rounded-full p-0.5 shadow-xl z-10"
               onClick={(e) => e.stopPropagation()}
@@ -348,7 +317,7 @@ function MediaCard({
                     : "text-ink-700 hover:text-ink-900",
                 ].join(" ")}
               >
-                📷 Photo
+                📷 Photos
               </button>
               <button
                 onClick={() => onSetMode("video")}
@@ -364,7 +333,30 @@ function MediaCard({
             </div>
           )}
 
-          {credit?.name && source && (
+          {/* Auto-rotation pagination dots — only when there are multiple
+              photos and we're in photo mode. Tappable to jump directly. */}
+          {!showingVideo && photoSet.length > 1 && (
+            <div
+              className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-ink-900/40 backdrop-blur px-2.5 py-1 rounded-full shadow-lg z-10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {photoSet.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => onPickPhoto(i)}
+                  className={[
+                    "h-1.5 rounded-full transition-all",
+                    i === photoIdx
+                      ? "w-5 bg-white"
+                      : "w-1.5 bg-white/55 hover:bg-white/80",
+                  ].join(" ")}
+                  aria-label={`Photo ${i + 1} of ${photoSet.length}`}
+                />
+              ))}
+            </div>
+          )}
+
+          {!showingVideo && credit?.name && (
             <a
               href={credit.url || "#"}
               target="_blank"
@@ -372,7 +364,7 @@ function MediaCard({
               className="absolute bottom-2 right-2 text-[9px] sm:text-[10px] text-white/95 bg-ink-900/45 backdrop-blur px-2 py-0.5 rounded hover:bg-ink-900/70 transition-colors z-10"
               onClick={(e) => e.stopPropagation()}
             >
-              {credit.name} · {source}
+              {credit.name} · pexels
             </a>
           )}
         </>
@@ -390,91 +382,6 @@ function LoadingPanel({ word, emoji }) {
       </div>
       <div className="w-24 h-1.5 rounded-full bg-ink-300/50 overflow-hidden">
         <div className="h-full w-1/3 rounded-full bg-brand-blue animate-[shimmer-slide_1.4s_ease-in-out_infinite]" />
-      </div>
-    </div>
-  );
-}
-
-// ─── Show-more gallery overlay ───────────────────────────────────────
-// Full-overlay grid of additional Pexels photos for the SAME word.
-// Stays in scope by design — only photos of `word`, nothing else.
-function GalleryOverlay({ word, photos, onClose }) {
-  return (
-    <div
-      className="absolute inset-0 z-40 bg-ink-900/70 backdrop-blur-md rounded-3xl overflow-hidden animate-[fadeIn_0.2s_ease-out]"
-      onClick={onClose}
-    >
-      <div
-        className="absolute inset-3 sm:inset-6 bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-        style={{ fontFamily: "Fredoka, 'Baloo 2', system-ui, sans-serif" }}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-ink-100 bg-gradient-to-r from-blue-50 to-amber-50">
-          <div>
-            <div className="text-[10px] uppercase tracking-wider font-bold text-brand-blue">
-              More photos
-            </div>
-            <div className="text-lg sm:text-xl font-extrabold text-ink-900">
-              {word.toUpperCase()}
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-10 h-10 rounded-full bg-white shadow hover:bg-rose-50 text-ink-700 text-xl font-bold flex items-center justify-center"
-            aria-label="Close gallery"
-          >
-            ✕
-          </button>
-        </div>
-
-        {/* Grid */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-4">
-          {photos === "loading" && (
-            <div className="h-full flex flex-col items-center justify-center gap-2 text-ink-500">
-              <div className="text-3xl animate-bounce">🖼️</div>
-              <div className="text-xs uppercase tracking-wide font-bold">
-                Finding more {word.toLowerCase()} photos…
-              </div>
-            </div>
-          )}
-          {Array.isArray(photos) && photos.length === 0 && (
-            <div className="h-full flex flex-col items-center justify-center gap-2 text-ink-500">
-              <div className="text-3xl">🤔</div>
-              <div className="text-sm">No more photos available right now.</div>
-            </div>
-          )}
-          {Array.isArray(photos) && photos.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
-              {photos.map((p, i) => (
-                <a
-                  key={p.url + i}
-                  href={p.credit?.url || "#"}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="relative aspect-square rounded-2xl overflow-hidden shadow ring-2 ring-white bg-ink-100 hover:scale-[1.02] active:scale-[0.98] transition-transform"
-                >
-                  <img
-                    src={p.thumb || p.url}
-                    alt={`${word} ${i + 1}`}
-                    className="w-full h-full object-cover"
-                    draggable={false}
-                  />
-                  {p.credit?.name && (
-                    <div className="absolute bottom-1 right-1 text-[8px] text-white/90 bg-ink-900/40 backdrop-blur px-1 py-0.5 rounded">
-                      {p.credit.name}
-                    </div>
-                  )}
-                </a>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Footer hint */}
-        <div className="px-5 py-2 text-[10px] text-center text-ink-500 border-t border-ink-100">
-          All photos from Pexels · stays on {word.toLowerCase()}
-        </div>
       </div>
     </div>
   );

@@ -321,19 +321,26 @@ export default function Lesson() {
     return () => clearTimeout(t);
   }, [aiReply, aiSpeaking, aiBusy]);
 
-  // ─── Preload next two letters' photo + video assets ────────────────
+  // ─── Preload next two letters' photo SET + video assets ────────────
   // The image/video API caches on the server — these warm-up fetches
   // mean the next slide is INSTANT when the kid gets there.
   useEffect(() => {
     if (!isKindergarten) return;
     const upcoming = sections.slice(activeSlideIdx + 1, activeSlideIdx + 3);
+    const headers = { "Content-Type": "application/json" };
     upcoming.forEach((s) => {
       const v = s?.visual;
       if (v?.type !== "kg-letter" || !v.word) return;
-      const body = JSON.stringify({ word: v.word, hint: v.photoHint });
-      const opts = { method: "POST", headers: { "Content-Type": "application/json" }, body };
-      fetch("/api/image", opts).catch(() => {});
-      fetch("/api/video", opts).catch(() => {});
+      fetch("/api/images", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ word: v.word, hint: v.photoHint, count: 6 }),
+      }).catch(() => {});
+      fetch("/api/video", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ word: v.word, hint: v.videoHint || v.photoHint }),
+      }).catch(() => {});
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSlideIdx, lesson?.id]);
