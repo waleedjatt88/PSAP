@@ -3,9 +3,70 @@
 // in /src/data/lessons/. The AI presents these lessons word-for-word.
 
 export const SUBJECTS = [
+  // ── Kindergarten tier (mostly visual, slow narration) ──────────────
+  {
+    id: "kg-literacy",
+    name: "Letters",
+    classTier: "kindergarten",
+    emoji: "🔤",
+    tint: "from-rose-200 to-pink-100",
+    accent: "from-rose-500 to-pink-700",
+    iconTint: "bg-rose-100",
+    progress: 0,
+    voiceGender: "female",
+    presenterName: "Aunty Adesua · AI Tutor",
+    topics: [
+      {
+        title: "A to Z Alphabet",
+        lessonId: "kg-alphabet",
+        description: "Learn every letter from A to Z with friendly pictures",
+      },
+    ],
+  },
+  {
+    id: "kg-numeracy",
+    name: "Numbers",
+    classTier: "kindergarten",
+    emoji: "🔢",
+    tint: "from-amber-200 to-yellow-100",
+    accent: "from-amber-500 to-orange-600",
+    iconTint: "bg-amber-100",
+    progress: 0,
+    voiceGender: "female",
+    presenterName: "Aunty Adesua · AI Tutor",
+    topics: [
+      {
+        title: "Numbers 1 to 10",
+        lessonId: "kg-numbers",
+        description: "Count out loud from one to ten",
+      },
+    ],
+  },
+  {
+    id: "kg-recognition",
+    name: "What Is This?",
+    classTier: "kindergarten",
+    emoji: "👀",
+    tint: "from-sky-200 to-cyan-100",
+    accent: "from-sky-500 to-cyan-700",
+    iconTint: "bg-sky-100",
+    progress: 0,
+    voiceGender: "female",
+    presenterName: "Aunty Adesua · AI Tutor",
+    topics: [
+      {
+        title: "Object Recognition",
+        lessonId: "kg-objects",
+        description: "Name the things you see every day",
+      },
+    ],
+  },
+
+  // ── JSS tier (full lesson teaching) ────────────────────────────────
   {
     id: "mathematics",
     name: "Mathematics",
+    classTier: "jss",
     emoji: "📐",
     image: "math",
     tint: "from-blue-100 to-blue-50",
@@ -25,6 +86,7 @@ export const SUBJECTS = [
   {
     id: "basic-science",
     name: "Basic Science",
+    classTier: "jss",
     emoji: "🌱",
     image: "science",
     tint: "from-emerald-100 to-emerald-50",

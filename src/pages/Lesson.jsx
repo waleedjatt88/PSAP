@@ -5,6 +5,7 @@ import { ArrowLeftIcon, ArrowRightIcon, MicIcon, CloseIcon } from "../components
 import AskAIModal from "../components/AskAIModal";
 import TalkingAvatar from "../components/TalkingAvatar";
 import LessonSlide from "../components/LessonSlide";
+import KindergartenSlide from "../components/KindergartenSlide";
 import useTeleprompter from "../hooks/useTeleprompter";
 import useSpeechRecognition from "../hooks/useSpeechRecognition";
 import { findSubject, findTopic } from "../data/curriculum";
@@ -27,8 +28,10 @@ export default function Lesson() {
   const flat = useMemo(() => flattenLesson(lesson), [lesson]);
   const sentences = useMemo(() => flat.map((f) => f.text), [flat]);
   // Subject decides the AI tutor's voice: maths → male, science → female.
+  // classLevel decides the speaking rate (Kindergarten reads slower).
   const tele = useTeleprompter(sentences, {
     preferredGender: subject.voiceGender || "any",
+    classLevel: lesson?.classLevel,
   });
 
   const sections = lesson?.sections || [];
@@ -280,16 +283,29 @@ export default function Lesson() {
           </div>
 
           <div className="flex-1 min-h-0">
-            <LessonSlide
-              section={activeSection}
-              sectionStartIdx={sectionStarts[activeSection?.id] ?? 0}
-              currentIdx={tele.currentIdx}
-              slideNumber={activeSlideIdx + 1}
-              totalSlides={sections.length}
-              subject={subject.name}
-              topic={topic.title}
-              onSentenceClick={(globalIdx) => tele.jumpTo(globalIdx)}
-            />
+            {lesson.layout === "kindergarten" ? (
+              <KindergartenSlide
+                section={activeSection}
+                sectionStartIdx={sectionStarts[activeSection?.id] ?? 0}
+                currentIdx={tele.currentIdx}
+                slideNumber={activeSlideIdx + 1}
+                totalSlides={sections.length}
+                subject={subject.name}
+                topic={topic.title}
+                onSentenceClick={(globalIdx) => tele.jumpTo(globalIdx)}
+              />
+            ) : (
+              <LessonSlide
+                section={activeSection}
+                sectionStartIdx={sectionStarts[activeSection?.id] ?? 0}
+                currentIdx={tele.currentIdx}
+                slideNumber={activeSlideIdx + 1}
+                totalSlides={sections.length}
+                subject={subject.name}
+                topic={topic.title}
+                onSentenceClick={(globalIdx) => tele.jumpTo(globalIdx)}
+              />
+            )}
           </div>
         </div>
       </div>

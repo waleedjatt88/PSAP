@@ -8,6 +8,7 @@ import chatHandler from "../api/chat.js";
 import lessonHandler from "../api/lesson.js";
 import gradeHandler from "../api/grade.js";
 import reportHandler from "../api/report.js";
+import ttsHandler from "../api/tts.js";
 
 dotenv.config();
 
@@ -23,6 +24,7 @@ app.post("/api/chat", (req, res) => chatHandler(req, res));
 app.post("/api/lesson", (req, res) => lessonHandler(req, res));
 app.post("/api/grade", (req, res) => gradeHandler(req, res));
 app.post("/api/report", (req, res) => reportHandler(req, res));
+app.post("/api/tts", (req, res) => ttsHandler(req, res));
 
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {

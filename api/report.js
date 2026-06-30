@@ -1,26 +1,16 @@
+import nodemailer from "nodemailer";
+
 // POST /api/report
 //
-// Sends a homework-marking report to the parent's email. Uses Resend
-// (https://resend.com) if RESEND_API_KEY is set — free tier allows 100
-// emails/day with no credit card. If no key is configured, the endpoint
-// still succeeds and returns `{ sent: false, preview }` so the demo can
-// show the rendered email body without actually sending anything.
+// Sends a homework-marking report to the parent's email.
 //
-// Body shape:
-//   {
-//     parentEmail: string,
-//     studentName: string,
-//     subject: string,
-//     topic: string,
-//     classLevel: string,
-//     score: number,
-//     total: number,
-//     percentage: number,
-//     grade: string,
-//     overallFeedback: string,
-//     suggestions: string[],
-//     questions: [...]       // full question-by-question breakdown
-//   }
+// Provider resolution chain (first one configured wins):
+//   1. SMTP via nodemailer — EMAIL_SERVICE + EMAIL_USER + EMAIL_APP_PASSWORD
+//      (e.g. Gmail with an App Password). This is the recommended setup
+//      because Gmail apps passwords are free + instant + reliable.
+//   2. Resend — RESEND_API_KEY (free tier: 100 emails/day).
+//   3. Preview-only fallback — returns { sent: false, previewHtml } so
+//      the UI can still show the rendered email body during a demo.
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -34,46 +24,84 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Missing or invalid parentEmail" });
     }
 
+    const appName = process.env.APP_NAME || "PassPoint AI";
     const html = buildEmailHtml(body);
-    const subjectLine = `PassPoint AI · ${studentName}'s homework report`;
+    const subjectLine = `${appName} · ${studentName}'s homework report`;
 
-    const resendKey = process.env.RESEND_API_KEY;
-    if (!resendKey) {
-      // No provider configured — return the preview so the UI can show
-      // "this is what the parent would receive" without actually sending.
-      return res.status(200).json({
-        sent: false,
-        reason:
-          "RESEND_API_KEY not configured on the server. Add it to .env (or Vercel env vars) and redeploy to enable real delivery.",
-        previewHtml: html,
-        previewSubject: subjectLine,
+    // ── 1. SMTP via nodemailer (preferred) ──────────────────────────
+    const smtpUser = process.env.EMAIL_USER;
+    const smtpPass = process.env.EMAIL_APP_PASSWORD;
+    if (smtpUser && smtpPass) {
+      const service = process.env.EMAIL_SERVICE || "gmail";
+      const transporter = nodemailer.createTransport({
+        service,
+        auth: { user: smtpUser, pass: smtpPass },
       });
+
+      const fromAddress =
+        process.env.REPORT_FROM_ADDRESS || `"${appName}" <${smtpUser}>`;
+
+      try {
+        const info = await transporter.sendMail({
+          from: fromAddress,
+          to: parentEmail,
+          replyTo: process.env.SUPPORT_EMAIL || smtpUser,
+          subject: subjectLine,
+          html,
+        });
+        return res.status(200).json({
+          sent: true,
+          via: "smtp",
+          messageId: info.messageId,
+          previewHtml: html,
+        });
+      } catch (err) {
+        console.error("[report] SMTP error:", err);
+        return res.status(500).json({
+          sent: false,
+          error: `SMTP send failed: ${String(err?.message || err)}`,
+          previewHtml: html,
+        });
+      }
     }
 
-    const fromAddress =
-      process.env.REPORT_FROM_ADDRESS || "PassPoint AI <onboarding@resend.dev>";
+    // ── 2. Resend fallback ──────────────────────────────────────────
+    const resendKey = process.env.RESEND_API_KEY;
+    if (resendKey) {
+      const fromAddress =
+        process.env.REPORT_FROM_ADDRESS || `${appName} <onboarding@resend.dev>`;
+      const r = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: fromAddress,
+          to: [parentEmail],
+          subject: subjectLine,
+          html,
+        }),
+      });
+      if (!r.ok) {
+        const errText = await r.text();
+        console.error("[report] resend error:", errText);
+        return res.status(r.status).json({ error: errText, previewHtml: html });
+      }
+      const data = await r.json();
+      return res
+        .status(200)
+        .json({ sent: true, via: "resend", id: data?.id, previewHtml: html });
+    }
 
-    const r = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${resendKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: fromAddress,
-        to: [parentEmail],
-        subject: subjectLine,
-        html,
-      }),
+    // ── 3. Preview-only fallback ────────────────────────────────────
+    return res.status(200).json({
+      sent: false,
+      reason:
+        "No email provider configured. Set EMAIL_USER + EMAIL_APP_PASSWORD (Gmail App Password) or RESEND_API_KEY in .env to enable real delivery.",
+      previewHtml: html,
+      previewSubject: subjectLine,
     });
-
-    if (!r.ok) {
-      const errText = await r.text();
-      console.error("[report] resend error:", errText);
-      return res.status(r.status).json({ error: errText });
-    }
-    const data = await r.json();
-    return res.status(200).json({ sent: true, id: data?.id, previewHtml: html });
   } catch (err) {
     console.error("[report] handler error:", err);
     return res.status(500).json({ error: String(err?.message || err) });
@@ -93,6 +121,7 @@ function buildEmailHtml({
   suggestions = [],
   questions = [],
 }) {
+  const appName = process.env.APP_NAME || "PassPoint AI";
   const gradeColor =
     percentage >= 80
       ? "#059669"
@@ -121,7 +150,7 @@ function buildEmailHtml({
 <html><body style="margin:0;background:#f8fafc;font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#0f172a;">
   <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 6px 24px rgba(15,23,42,0.08);">
     <div style="background:linear-gradient(135deg,#1E3A8A,#3B5BDB);color:#fff;padding:24px;">
-      <div style="font-size:11px;letter-spacing:2px;opacity:0.85;text-transform:uppercase;font-weight:700;">PassPoint AI · Homework Report</div>
+      <div style="font-size:11px;letter-spacing:2px;opacity:0.85;text-transform:uppercase;font-weight:700;">${esc(appName)} · Homework Report</div>
       <div style="font-size:22px;font-weight:800;margin-top:6px;">${esc(studentName)}</div>
       <div style="opacity:0.85;font-size:13px;margin-top:2px;">${esc(classLevel)} · ${esc(subject)}${topic ? " · " + esc(topic) : ""}</div>
     </div>
@@ -154,7 +183,7 @@ function buildEmailHtml({
     </div>
 
     <div style="background:#f8fafc;padding:14px 24px;text-align:center;color:#64748b;font-size:12px;border-top:1px solid #e5e7eb;">
-      Sent automatically by PassPoint AI — your child's learning companion.
+      Sent automatically by ${esc(appName)} — your child's learning companion.
     </div>
   </div>
 </body></html>`;
