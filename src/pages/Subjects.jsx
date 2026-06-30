@@ -72,6 +72,7 @@ export default function Subjects() {
   );
 }
 
+
 function SubjectCard({ subject: s, playful }) {
   return (
     <div
