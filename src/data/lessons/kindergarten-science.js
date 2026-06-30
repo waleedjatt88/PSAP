@@ -2,17 +2,21 @@
 // One body part per section, GIANT on screen, child-friendly narration.
 // Modelled after kindergarten-numbers / kindergarten-objects.
 
+// Background gradients picked for contrast against each emoji's
+// dominant colour. Teeth (🦷) is mostly white, so its bg is deep slate.
+// Nose/Mouth/Hair are peach-skin or red tones, so their bgs avoid the
+// matching pastel family they used to sit on.
 const BODY_PARTS = [
-  { name: "Eyes",  emoji: "👀", action: "see",   color: "from-rose-200 to-rose-100" },
-  { name: "Ears",  emoji: "👂", action: "hear",  color: "from-amber-200 to-amber-100" },
-  { name: "Nose",  emoji: "👃", action: "smell", color: "from-orange-200 to-orange-100" },
-  { name: "Mouth", emoji: "👄", action: "talk and eat", color: "from-pink-200 to-pink-100" },
-  { name: "Teeth", emoji: "🦷", action: "chew our food", color: "from-yellow-200 to-yellow-100" },
-  { name: "Tongue", emoji: "👅", action: "taste",  color: "from-lime-200 to-lime-100" },
-  { name: "Hands", emoji: "✋", action: "hold and clap", color: "from-emerald-200 to-emerald-100" },
-  { name: "Feet",  emoji: "🦶", action: "walk and run", color: "from-teal-200 to-teal-100" },
-  { name: "Hair",  emoji: "💇", action: "cover and protect our head", color: "from-cyan-200 to-cyan-100" },
-  { name: "Brain", emoji: "🧠", action: "think and learn", color: "from-violet-200 to-purple-100" },
+  { name: "Eyes",  emoji: "👀", action: "see",   color: "from-sky-300 to-sky-200" },
+  { name: "Ears",  emoji: "👂", action: "hear",  color: "from-amber-300 to-amber-200" },
+  { name: "Nose",  emoji: "👃", action: "smell", color: "from-blue-300 to-blue-200" },
+  { name: "Mouth", emoji: "👄", action: "talk and eat", color: "from-indigo-300 to-indigo-200" },
+  { name: "Teeth", emoji: "🦷", action: "chew our food", color: "from-slate-700 to-slate-900" },
+  { name: "Tongue", emoji: "👅", action: "taste",  color: "from-lime-300 to-lime-200" },
+  { name: "Hands", emoji: "✋", action: "hold and clap", color: "from-emerald-300 to-emerald-200" },
+  { name: "Feet",  emoji: "🦶", action: "walk and run", color: "from-teal-300 to-teal-200" },
+  { name: "Hair",  emoji: "💇", action: "cover and protect our head", color: "from-violet-300 to-violet-200" },
+  { name: "Brain", emoji: "🧠", action: "think and learn", color: "from-yellow-300 to-amber-200" },
 ];
 
 const sections = BODY_PARTS.map((item, i) => ({
