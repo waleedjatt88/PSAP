@@ -151,15 +151,23 @@ function PieVisual({ num, den, label }) {
   }
   return (
     <div className="flex flex-col items-center gap-4 animate-[float_4s_ease-in-out_infinite]">
-      <svg viewBox="0 0 200 200" className="w-64 h-64 lg:w-72 lg:h-72 drop-shadow-lg">
+      <svg
+        viewBox="0 0 200 200"
+        className="w-72 h-72 sm:w-80 sm:h-80 lg:w-96 lg:h-96 drop-shadow-2xl"
+      >
         {slices}
       </svg>
       <div className="text-center">
-        <div className="text-6xl lg:text-7xl font-extrabold text-brand-blue tabular-nums leading-none">
+        <div
+          className="text-7xl sm:text-8xl lg:text-9xl font-extrabold text-brand-blue tabular-nums leading-none"
+          style={{ fontFamily: "Fredoka, 'Baloo 2', system-ui, sans-serif" }}
+        >
           {num}/{den}
         </div>
         {label && (
-          <div className="text-sm text-ink-500 mt-2 max-w-[16rem]">{label}</div>
+          <div className="text-sm sm:text-base text-ink-500 mt-3 max-w-[20rem]">
+            {label}
+          </div>
         )}
       </div>
     </div>
@@ -250,7 +258,10 @@ function PieMini({ num, den, size = 100 }) {
 function MathVisual({ expression, steps }) {
   return (
     <div className="flex flex-col items-center gap-4 text-center w-full">
-      <div className="text-4xl lg:text-5xl xl:text-6xl font-extrabold text-brand-blue px-6 py-8 bg-gradient-to-br from-blue-50 to-orange-50 border-2 border-blue-200 rounded-2xl tabular-nums shadow-card animate-[float_4s_ease-in-out_infinite]">
+      <div
+        className="text-5xl sm:text-6xl lg:text-7xl xl:text-8xl font-extrabold text-brand-blue px-6 sm:px-10 py-8 sm:py-10 bg-gradient-to-br from-blue-50 to-orange-50 border-2 border-blue-200 rounded-3xl tabular-nums shadow-2xl animate-[float_4s_ease-in-out_infinite]"
+        style={{ fontFamily: "Fredoka, 'Baloo 2', system-ui, sans-serif" }}
+      >
         {expression}
       </div>
       {steps?.length > 0 && (
@@ -281,20 +292,28 @@ function MathVisual({ expression, steps }) {
 function IconGridVisual({ items = [], columns = 2 }) {
   const cols = columns === 3 ? "grid-cols-3" : "grid-cols-2";
   return (
-    <div className={`grid ${cols} gap-3 w-full`}>
+    <div className={`grid ${cols} gap-3 sm:gap-4 w-full`}>
       {items.map((it, i) => (
         <div
           key={i}
-          className="bg-white border-2 border-ink-100 rounded-xl p-4 flex flex-col items-center text-center shadow-card hover:scale-105 hover:border-brand-blue transition-transform"
-          style={{ animation: `item-pop 0.5s cubic-bezier(0.34,1.56,0.64,1) ${i * 0.08}s both` }}
+          className="bg-white border-2 border-ink-100 rounded-2xl p-4 sm:p-5 flex flex-col items-center text-center shadow-card hover:scale-105 hover:border-brand-blue transition-transform"
+          style={{
+            animation: `item-pop 0.5s cubic-bezier(0.34,1.56,0.64,1) ${i * 0.08}s both`,
+          }}
         >
           <div
-            className="text-5xl lg:text-6xl"
-            style={{ animation: `gentle-bob 3s ease-in-out infinite ${i * 0.2}s` }}
+            className="text-6xl sm:text-7xl lg:text-8xl"
+            style={{
+              animation: `gentle-bob 3s ease-in-out infinite ${i * 0.2}s`,
+              filter: "drop-shadow(0 6px 12px rgba(15,23,42,0.12))",
+            }}
           >
             {it.emoji}
           </div>
-          <div className="text-sm lg:text-base font-semibold text-ink-900 mt-2">
+          <div
+            className="text-sm sm:text-base lg:text-lg font-bold text-ink-900 mt-2"
+            style={{ fontFamily: "Fredoka, system-ui, sans-serif" }}
+          >
             {it.label}
           </div>
         </div>
@@ -320,7 +339,7 @@ function AcronymVisual({ word = "", meanings = [], highlight }) {
   ];
   return (
     <div className="flex flex-col items-center gap-4 w-full">
-      <div className="flex gap-2 flex-wrap justify-center">
+      <div className="flex gap-2 sm:gap-3 flex-wrap justify-center">
         {letters.map((ch, i) => {
           const isActive =
             highlight && meanings[i]?.toLowerCase() === highlight.toLowerCase();
@@ -328,12 +347,13 @@ function AcronymVisual({ word = "", meanings = [], highlight }) {
             <div
               key={i}
               className={[
-                "w-14 h-14 lg:w-16 lg:h-16 rounded-xl border-2 flex items-center justify-center text-2xl lg:text-3xl font-extrabold shadow-md",
+                "w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 rounded-2xl border-2 flex items-center justify-center text-3xl sm:text-4xl lg:text-5xl font-extrabold shadow-lg",
                 tints[i % tints.length],
                 isActive ? "ring-4 ring-brand-blue scale-110" : "",
               ].join(" ")}
               style={{
-                animation: `item-pop 0.45s cubic-bezier(0.34,1.56,0.64,1) ${i * 0.1}s both`,
+                animation: `item-pop 0.45s cubic-bezier(0.34,1.56,0.64,1) ${i * 0.1}s both, gentle-bob 3.5s ease-in-out ${i * 0.2}s infinite`,
+                fontFamily: "Fredoka, 'Baloo 2', system-ui, sans-serif",
               }}
             >
               {ch}
@@ -378,23 +398,26 @@ function AcronymVisual({ word = "", meanings = [], highlight }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Big banner — for intro / summary slides. Now uses a HUGE animated icon
-// so the visual area never feels empty.
+// Big banner — for intro / summary slides. HUGE animated icon, playful
+// font on the label, so the visual area never feels empty.
 
 function BannerVisual({ icon, label, subtitle }) {
   return (
-    <div className="flex flex-col items-center gap-3 text-center w-full justify-center h-full">
+    <div className="flex flex-col items-center gap-4 text-center w-full justify-center h-full">
       <div
-        className="text-[9rem] lg:text-[11rem] leading-none animate-[bounce-soft_2.4s_ease-in-out_infinite]"
-        style={{ filter: "drop-shadow(0 8px 16px rgba(30, 58, 138, 0.25))" }}
+        className="text-[11rem] sm:text-[13rem] lg:text-[15rem] leading-none animate-[bounce-soft_2.4s_ease-in-out_infinite]"
+        style={{ filter: "drop-shadow(0 12px 24px rgba(30, 58, 138, 0.3))" }}
       >
         {icon}
       </div>
-      <div className="text-3xl lg:text-4xl font-extrabold text-brand-blue">
+      <div
+        className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-brand-blue"
+        style={{ fontFamily: "Fredoka, 'Baloo 2', system-ui, sans-serif" }}
+      >
         {label}
       </div>
       {subtitle && (
-        <div className="text-sm lg:text-base text-ink-500 max-w-[18rem]">
+        <div className="text-sm sm:text-base text-ink-500 max-w-[22rem]">
           {subtitle}
         </div>
       )}

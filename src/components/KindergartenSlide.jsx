@@ -6,6 +6,7 @@
 //   { type: "kg-letter",  letter, word, emoji, color }   — A for Apple
 //   { type: "kg-number",  n, word, emoji, color }        — counting
 //   { type: "kg-object",  name, emoji, color }           — what is this?
+//   { type: "kg-shape",   name, shape, emoji, color }    — circle/square/...
 //   { type: "kg-banner",  icon, label, color }           — intro / outro
 
 export default function KindergartenSlide({
@@ -86,6 +87,8 @@ function Scene({ visual }) {
       return <NumberScene {...visual} />;
     case "kg-object":
       return <ObjectScene {...visual} />;
+    case "kg-shape":
+      return <ShapeScene {...visual} />;
     case "kg-banner":
     default:
       return <BannerScene {...visual} />;
@@ -167,6 +170,102 @@ function ObjectScene({ name, emoji }) {
       </div>
     </div>
   );
+}
+
+// Big drawn shape on one side, real-world example emoji on the other.
+// Mirrors NumberScene's "big number + counting objects" layout.
+function ShapeScene({ name, shape, emoji }) {
+  return (
+    <div className="flex items-center justify-center gap-6 sm:gap-12 w-full max-w-5xl">
+      <div className="flex flex-col items-center">
+        <div className="w-[14rem] h-[14rem] sm:w-[20rem] sm:h-[20rem] md:w-[24rem] md:h-[24rem] flex items-center justify-center animate-[bounce-soft_2.4s_ease-in-out_infinite]"
+          style={{ filter: "drop-shadow(0 10px 24px rgba(15,23,42,0.25))" }}>
+          <ShapeSVG shape={shape} />
+        </div>
+        <div className="text-3xl sm:text-5xl font-extrabold text-white drop-shadow-lg uppercase tracking-wide mt-2"
+          style={{ WebkitTextStroke: "2px rgba(15,23,42,0.15)" }}>
+          {name}
+        </div>
+      </div>
+      <div
+        className="text-[8rem] sm:text-[12rem] md:text-[16rem] leading-none animate-[gentle-bob_3s_ease-in-out_infinite]"
+        style={{ filter: "drop-shadow(0 10px 20px rgba(15,23,42,0.2))" }}
+      >
+        {emoji}
+      </div>
+    </div>
+  );
+}
+
+// Pure SVG drawings of each named shape, in a chunky white fill with
+// a soft ink outline so they pop on the gradient background.
+function ShapeSVG({ shape }) {
+  const stroke = "rgba(15,23,42,0.25)";
+  const strokeWidth = 6;
+  const fill = "#ffffff";
+  const common = { fill, stroke, strokeWidth, strokeLinejoin: "round" };
+  switch (shape) {
+    case "circle":
+      return (
+        <svg viewBox="0 0 200 200" className="w-full h-full">
+          <circle cx="100" cy="100" r="86" {...common} />
+        </svg>
+      );
+    case "square":
+      return (
+        <svg viewBox="0 0 200 200" className="w-full h-full">
+          <rect x="20" y="20" width="160" height="160" rx="8" {...common} />
+        </svg>
+      );
+    case "triangle":
+      return (
+        <svg viewBox="0 0 200 200" className="w-full h-full">
+          <polygon points="100,20 184,176 16,176" {...common} />
+        </svg>
+      );
+    case "rectangle":
+      return (
+        <svg viewBox="0 0 200 200" className="w-full h-full">
+          <rect x="10" y="50" width="180" height="100" rx="8" {...common} />
+        </svg>
+      );
+    case "star":
+      return (
+        <svg viewBox="0 0 200 200" className="w-full h-full">
+          <polygon
+            points="100,12 124,76 192,80 138,124 158,190 100,152 42,190 62,124 8,80 76,76"
+            {...common}
+          />
+        </svg>
+      );
+    case "heart":
+      return (
+        <svg viewBox="0 0 200 200" className="w-full h-full">
+          <path
+            d="M100 176 C 30 130, 10 80, 50 50 C 80 28, 100 56, 100 72 C 100 56, 120 28, 150 50 C 190 80, 170 130, 100 176 Z"
+            {...common}
+          />
+        </svg>
+      );
+    case "diamond":
+      return (
+        <svg viewBox="0 0 200 200" className="w-full h-full">
+          <polygon points="100,16 184,100 100,184 16,100" {...common} />
+        </svg>
+      );
+    case "oval":
+      return (
+        <svg viewBox="0 0 200 200" className="w-full h-full">
+          <ellipse cx="100" cy="100" rx="86" ry="60" {...common} />
+        </svg>
+      );
+    default:
+      return (
+        <svg viewBox="0 0 200 200" className="w-full h-full">
+          <circle cx="100" cy="100" r="86" {...common} />
+        </svg>
+      );
+  }
 }
 
 // Intro / outro slide

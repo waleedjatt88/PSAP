@@ -3,6 +3,8 @@ import livingThings from "./living-things.js";
 import kgAlphabet from "./kindergarten-alphabet.js";
 import kgNumbers from "./kindergarten-numbers.js";
 import kgObjects from "./kindergarten-objects.js";
+import kgShapes from "./kindergarten-shapes.js";
+import kgScience from "./kindergarten-science.js";
 
 // Registry of all available lessons. The lesson id is canonical — the
 // curriculum points at one of these.
@@ -12,6 +14,8 @@ export const LESSONS = {
   [kgAlphabet.id]: kgAlphabet,
   [kgNumbers.id]: kgNumbers,
   [kgObjects.id]: kgObjects,
+  [kgShapes.id]: kgShapes,
+  [kgScience.id]: kgScience,
 };
 
 export function getLesson(id) {

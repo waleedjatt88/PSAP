@@ -303,6 +303,7 @@ export default function Lesson() {
                 totalSlides={sections.length}
                 subject={subject.name}
                 topic={topic.title}
+                tint={subject.tint}
                 onSentenceClick={(globalIdx) => tele.jumpTo(globalIdx)}
               />
             )}

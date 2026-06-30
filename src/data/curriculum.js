@@ -61,6 +61,44 @@ export const SUBJECTS = [
       },
     ],
   },
+  {
+    id: "kg-maths",
+    name: "Maths",
+    classTier: "kindergarten",
+    emoji: "🔷",
+    tint: "from-blue-200 to-indigo-100",
+    accent: "from-blue-500 to-indigo-700",
+    iconTint: "bg-blue-100",
+    progress: 0,
+    voiceGender: "female",
+    presenterName: "Aunty Adesua · AI Tutor",
+    topics: [
+      {
+        title: "Shapes Around Us",
+        lessonId: "kg-shapes",
+        description: "Spot circles, squares, triangles and more",
+      },
+    ],
+  },
+  {
+    id: "kg-science",
+    name: "Science",
+    classTier: "kindergarten",
+    emoji: "🧒",
+    tint: "from-emerald-200 to-teal-100",
+    accent: "from-emerald-500 to-teal-700",
+    iconTint: "bg-emerald-100",
+    progress: 0,
+    voiceGender: "female",
+    presenterName: "Aunty Adesua · AI Tutor",
+    topics: [
+      {
+        title: "My Body",
+        lessonId: "kg-science-body",
+        description: "Name parts of the body and what they do",
+      },
+    ],
+  },
 
   // ── JSS tier (full lesson teaching) ────────────────────────────────
   {
