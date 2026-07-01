@@ -13,11 +13,35 @@ import imageHandler from "../api/image.js";
 import videoHandler from "../api/video.js";
 import imagesHandler from "../api/images.js";
 import subscribeHandler from "../api/subscribe.js";
+import { connectToDatabase } from "../lib/mongodb.js";
 
 dotenv.config();
 
+// Connect to MongoDB on startup
+connectToDatabase().catch((err) => {
+  console.error("[passpoint-server] MongoDB connection error on startup:", err.message);
+});
+
 const app = express();
-app.use(cors());
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "X-CSRF-Token",
+      "X-Requested-With",
+      "Accept",
+      "Accept-Version",
+      "Content-Length",
+      "Content-MD5",
+      "Content-Type",
+      "Date",
+      "X-Api-Version",
+      "Authorization",
+    ],
+    credentials: true,
+  })
+);
 app.use(express.json({ limit: "2mb" }));
 
 // Tiny adapter: Express req/res are compatible enough with Vercel's signature
@@ -37,8 +61,8 @@ app.post("/api/subscribe", (req, res) => subscribeHandler(req, res));
 const PORT = process.env.PORT || 5050;
 const server = app.listen(PORT, () => {
   const provider = (process.env.AI_PROVIDER || "openai").toLowerCase();
-  console.log(`[passpoint-server] running on http://localhost:${PORT}`);
-  console.log(`[passpoint-server] provider=${provider}`);
+  console.log(`[🤖 passpoint-server] running on http://localhost:${PORT}`);
+  console.log(`[🚀 passpoint-server] provider=${provider}`);
 });
 // Without this, a port-in-use error silently exits with code 0 and the
 // `concurrently` log just says "exited" with no clue why. Surface it.
