@@ -12,6 +12,7 @@ import ttsHandler from "../api/tts.js";
 import imageHandler from "../api/image.js";
 import videoHandler from "../api/video.js";
 import imagesHandler from "../api/images.js";
+import subscribeHandler from "../api/subscribe.js";
 
 dotenv.config();
 
@@ -31,6 +32,7 @@ app.post("/api/tts", (req, res) => ttsHandler(req, res));
 app.post("/api/image", (req, res) => imageHandler(req, res));
 app.post("/api/video", (req, res) => videoHandler(req, res));
 app.post("/api/images", (req, res) => imagesHandler(req, res));
+app.post("/api/subscribe", (req, res) => subscribeHandler(req, res));
 
 const PORT = process.env.PORT || 5050;
 const server = app.listen(PORT, () => {

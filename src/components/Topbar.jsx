@@ -3,7 +3,7 @@ import { useUser } from "../store/user";
 import { useNavigate } from "react-router-dom";
 
 export default function Topbar({ onMenu }) {
-  const { user, logout } = useUser();
+  const { user, signOut } = useUser();
   const nav = useNavigate();
 
   const initials = (user?.name || "S")
@@ -53,8 +53,8 @@ export default function Topbar({ onMenu }) {
           <div className="text-xs text-ink-500">{user?.classLevel || "JSS 1"}</div>
         </div>
         <button
-          onClick={() => {
-            logout();
+          onClick={async () => {
+            await signOut();
             nav("/login");
           }}
           className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-blue to-brand-orange text-white text-sm font-bold flex items-center justify-center shadow-card hover:opacity-90"

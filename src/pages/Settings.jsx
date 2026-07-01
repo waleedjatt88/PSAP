@@ -2,18 +2,28 @@ import { useState } from "react";
 import { useUser } from "../store/user";
 
 export default function Settings() {
-  const { user, login } = useUser();
+  const { user, updateProfile } = useUser();
   const [name, setName] = useState(user?.name || "");
   const [classLevel, setClassLevel] = useState(user?.classLevel || "JSS 1");
   const [voiceOn, setVoiceOn] = useState(true);
   const [notifOn, setNotifOn] = useState(true);
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
 
-  const save = (e) => {
+  const save = async (e) => {
     e.preventDefault();
-    login({ ...user, name, classLevel });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setSaving(true);
+    setError(null);
+    try {
+      await updateProfile({ name, classLevel });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setError(err.message || "Could not save profile");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -66,10 +76,12 @@ export default function Settings() {
 
         <button
           type="submit"
-          className="bg-brand-blue hover:bg-brand-blue-dark text-white font-semibold rounded-lg px-5 py-2 text-sm"
+          disabled={saving}
+          className="bg-brand-blue hover:bg-brand-blue-dark disabled:opacity-60 text-white font-semibold rounded-lg px-5 py-2 text-sm"
         >
-          {saved ? "Saved ✓" : "Save Changes"}
+          {saving ? "Saving…" : saved ? "Saved ✓" : "Save Changes"}
         </button>
+        {error && <div className="text-xs text-red-600 mt-2">{error}</div>}
       </form>
 
       <div className="bg-white rounded-2xl shadow-card p-6 space-y-4">

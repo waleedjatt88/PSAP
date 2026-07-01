@@ -11,6 +11,8 @@ import Bookmarks from "./pages/Bookmarks";
 import Accomplishments from "./pages/Accomplishments";
 import Settings from "./pages/Settings";
 import Homework from "./pages/Homework";
+import Path from "./pages/Path";
+import Community from "./pages/Community";
 import "./App.css";
 
 export default function App() {
@@ -34,6 +36,8 @@ export default function App() {
         {/* Everything else uses the regular dashboard chrome */}
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/path/:id" element={<Path />} />
+          <Route path="/community/:pathId" element={<Community />} />
           <Route path="/subjects" element={<Subjects />} />
           <Route path="/homework" element={<Homework />} />
           <Route path="/progress" element={<Progress />} />
