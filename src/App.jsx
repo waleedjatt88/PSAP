@@ -3,6 +3,9 @@ import { UserProvider } from "./store/user";
 import Layout from "./components/Layout";
 import RequireAuth from "./components/RequireAuth";
 import Login from "./pages/Login";
+import VerifyOtp from "./pages/VerifyOtp";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import Lesson from "./pages/Lesson";
 import Subjects from "./pages/Subjects";
@@ -20,6 +23,9 @@ export default function App() {
     <UserProvider>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/verify-otp" element={<VerifyOtp />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
         {/* /lesson is rendered OUTSIDE the dashboard Layout so it can
             take over the entire viewport like a real PowerPoint

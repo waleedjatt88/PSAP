@@ -1,67 +1,17 @@
-import { useEffect, useState } from "react";
 import { useParams, Link, Navigate } from "react-router-dom";
-import { supabase } from "../lib/supabase";
+import { getLearningPath } from "../data/learningPaths";
 
-// Landing page for a subscribed learning path (SS3, JAMB, …).
+// Landing page for a learning path (SS3, JAMB, …).
 // For classes this will show 3 Terms → Scheme of Work → Topics.
 // For exams this will show Past Questions grouped by year.
-// For now it verifies entitlement + shows the shell; the term/topic
-// tree lives in the next sprint once we've imported curriculum data.
+// For now it shows the shell; the term/topic tree + subscriptions land in
+// a future sprint once curriculum data + billing are wired up.
 export default function Path() {
   const { id } = useParams();
-  const [path, setPath] = useState(null);
-  const [entitled, setEntitled] = useState(null);   // null = loading, true/false = resolved
-  const [error, setError] = useState(null);
+  const path = getLearningPath(id);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const [{ data: pathRow, error: pErr }, { data: subs, error: sErr }] =
-        await Promise.all([
-          supabase.from("learning_paths").select("*").eq("id", id).maybeSingle(),
-          supabase
-            .from("subscriptions")
-            .select("id")
-            .eq("learning_path_id", id)
-            .eq("status", "active"),
-        ]);
-      if (cancelled) return;
-      if (pErr || sErr) {
-        setError((pErr || sErr).message);
-        setEntitled(false);
-        return;
-      }
-      setPath(pathRow);
-      setEntitled(Boolean(subs && subs.length > 0));
-    })();
-    return () => { cancelled = true; };
-  }, [id]);
-
-  if (entitled === null) {
-    return <div className="text-sm text-ink-500">Loading…</div>;
-  }
-  if (error) {
-    return <div className="text-sm text-red-600">{error}</div>;
-  }
   if (!path) {
     return <Navigate to="/dashboard" replace />;
-  }
-  if (!entitled) {
-    return (
-      <div className="max-w-lg mx-auto text-center bg-white rounded-2xl shadow-card p-8">
-        <div className="text-4xl mb-2">🔒</div>
-        <div className="font-bold text-ink-900">You are not subscribed to {path.name}</div>
-        <p className="text-sm text-ink-500 mt-1">
-          Subscribe to unlock this learning path.
-        </p>
-        <Link
-          to="/dashboard"
-          className="inline-block mt-4 text-sm font-semibold text-brand-blue hover:underline"
-        >
-          ← Back to dashboard
-        </Link>
-      </div>
-    );
   }
 
   const kindLabel = path.kind === "exam" ? "Past Questions" : "Terms & Scheme of Work";
@@ -69,7 +19,7 @@ export default function Path() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <div className={`w-16 h-16 rounded-xl flex items-center justify-center text-3xl ${path.color_tint || "bg-ink-100"}`}>
+        <div className={`w-16 h-16 rounded-xl flex items-center justify-center text-3xl ${path.colorTint || "bg-ink-100"}`}>
           {path.icon || "📚"}
         </div>
         <div>

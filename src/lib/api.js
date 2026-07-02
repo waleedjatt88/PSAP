@@ -1,12 +1,20 @@
-import { supabase } from "./supabase";
+const TOKEN_KEY = "pp_token";
 
-// Wrap fetch() so /api/* calls automatically carry the current Supabase
-// access token. Anything the server does on behalf of a specific user
-// (writing subscriptions, saving progress, posting to a community) needs
-// this — the server does not trust user ids sent in the body.
+export function getToken() {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setToken(token) {
+  if (token) localStorage.setItem(TOKEN_KEY, token);
+  else localStorage.removeItem(TOKEN_KEY);
+}
+
+// Wrap fetch() so /api/* calls automatically carry the current session JWT
+// (stored in localStorage after sign in/up). Anything the server does on
+// behalf of a specific user needs this — the server does not trust user ids
+// sent in the body.
 export async function apiFetch(path, options = {}) {
-  const { data } = await supabase.auth.getSession();
-  const token = data?.session?.access_token;
+  const token = getToken();
 
   const headers = new Headers(options.headers || {});
   if (token) headers.set("Authorization", `Bearer ${token}`);

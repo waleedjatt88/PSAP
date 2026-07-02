@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import Logo from "../components/Logo";
 import { EyeIcon } from "../components/icons";
 import { useUser } from "../store/user";
@@ -15,6 +15,7 @@ const CLASS_LEVELS = [
 export default function Login() {
   const { signIn, signUp } = useUser();
   const nav = useNavigate();
+  const location = useLocation();
 
   const [mode, setMode] = useState("signin");   // 'signin' | 'signup'
   const [email, setEmail] = useState("");
@@ -24,7 +25,14 @@ export default function Login() {
   const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-  const [info, setInfo] = useState(null);
+  const [info, setInfo] = useState(location.state?.info || null);
+
+  useEffect(() => {
+    if (location.state?.info) {
+      // Consume it so a refresh/back-nav doesn't keep showing it.
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -36,17 +44,14 @@ export default function Login() {
         await signIn({ email, password });
         nav("/dashboard");
       } else {
-        const { session } = await signUp({ email, password, fullName, classLevel });
-        if (session) {
-          // Email confirmation is off → straight in
-          nav("/dashboard");
-        } else {
-          // Email confirmation is on → tell the user to check their inbox
-          setInfo("Account created. Check your email to confirm your address before signing in.");
-          setMode("signin");
-        }
+        await signUp({ email, password, fullName, classLevel });
+        nav(`/verify-otp?email=${encodeURIComponent(email)}&purpose=signup`);
       }
     } catch (err) {
+      if (err.payload?.needsVerification) {
+        nav(`/verify-otp?email=${encodeURIComponent(err.payload.email || email)}&purpose=signup`);
+        return;
+      }
       setError(err.message || "Authentication failed");
     } finally {
       setBusy(false);
@@ -167,9 +172,12 @@ export default function Login() {
 
           {!isSignup && (
             <div className="text-right mt-2">
-              <a className="text-xs font-medium text-purple-300 hover:text-white hover:underline" href="#">
+              <Link
+                to="/forgot-password"
+                className="text-xs font-medium text-purple-300 hover:text-white hover:underline"
+              >
                 Forgot Password
-              </a>
+              </Link>
             </div>
           )}
 

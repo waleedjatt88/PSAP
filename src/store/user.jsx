@@ -1,99 +1,71 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { supabase } from "../lib/supabase";
+import { getToken, setToken } from "../lib/api";
+import { signup, login, fetchMe, updateProfileRequest } from "../lib/authApi";
 
 const UserCtx = createContext(null);
 
 // Shape stored in context:
-//   { id, email, name, classLevel, avatar }   — merged auth + profile row
-// Or null when signed out. `loading` is true until Supabase has hydrated the
-// session on first mount; guards should render a spinner while that's true.
+//   { id, email, name, classLevel, avatar, isVerified }
+// Or null when signed out. `loading` is true until the stored JWT (if any)
+// has been checked against /api/auth/me on first mount; guards should
+// render a spinner while that's true.
 
 export function UserProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const applySession = useCallback(async (session) => {
-    if (!session?.user) {
-      setUser(null);
-      return;
-    }
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("full_name, class_level, avatar_url")
-      .eq("id", session.user.id)
-      .maybeSingle();
-
-    setUser({
-      id: session.user.id,
-      email: session.user.email,
-      name: profile?.full_name || session.user.email?.split("@")[0] || "Student",
-      classLevel: profile?.class_level || null,
-      avatar: profile?.avatar_url || null,
-    });
-  }, []);
-
   useEffect(() => {
     let cancelled = false;
-
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (cancelled) return;
-      await applySession(data.session);
-      setLoading(false);
-    });
-
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (cancelled) return;
-      await applySession(session);
-    });
-
+    (async () => {
+      if (!getToken()) {
+        setLoading(false);
+        return;
+      }
+      try {
+        const { user: me } = await fetchMe();
+        if (!cancelled) setUser(me);
+      } catch {
+        setToken(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
     return () => {
       cancelled = true;
-      sub?.subscription?.unsubscribe?.();
     };
-  }, [applySession]);
+  }, []);
+
+  // Called after signup verification issues a token, so the new session is
+  // applied without a second round trip through /api/auth/login.
+  const applySession = useCallback(({ token, user: sessionUser }) => {
+    setToken(token);
+    setUser(sessionUser);
+  }, []);
 
   const signIn = async ({ email, password }) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
+    const data = await login({ email, password });
+    applySession(data);
     return data;
   };
 
   const signUp = async ({ email, password, fullName, classLevel }) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-          class_level: classLevel,
-        },
-      },
-    });
-    if (error) throw error;
-    return data;
+    return signup({ email, password, fullName, classLevel });
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    setToken(null);
     setUser(null);
   };
 
   const updateProfile = async (patch) => {
     if (!user) throw new Error("Not signed in");
-    const row = {
-      full_name: patch.name ?? user.name,
-      class_level: patch.classLevel ?? user.classLevel,
-      avatar_url: patch.avatar ?? user.avatar,
-      updated_at: new Date().toISOString(),
-    };
-    const { error } = await supabase.from("profiles").update(row).eq("id", user.id);
-    if (error) throw error;
-    setUser({ ...user, ...patch });
+    const { user: updated } = await updateProfileRequest(patch);
+    setUser(updated);
   };
 
   return (
     <UserCtx.Provider
-      value={{ user, loading, signIn, signUp, signOut, updateProfile }}
+      value={{ user, loading, signIn, signUp, signOut, updateProfile, applySession }}
     >
       {children}
     </UserCtx.Provider>

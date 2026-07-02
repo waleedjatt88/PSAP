@@ -12,7 +12,14 @@ import ttsHandler from "../api/tts.js";
 import imageHandler from "../api/image.js";
 import videoHandler from "../api/video.js";
 import imagesHandler from "../api/images.js";
-import subscribeHandler from "../api/subscribe.js";
+import signupHandler from "../api/auth/signup.js";
+import loginHandler from "../api/auth/login.js";
+import meHandler from "../api/auth/me.js";
+import updateProfileHandler from "../api/auth/update-profile.js";
+import resendOtpHandler from "../api/auth/resend-otp.js";
+import verifyOtpHandler from "../api/auth/verify-otp.js";
+import forgotPasswordHandler from "../api/auth/forgot-password.js";
+import resetPasswordHandler from "../api/auth/reset-password.js";
 import { connectToDatabase } from "../lib/mongodb.js";
 
 dotenv.config();
@@ -56,7 +63,14 @@ app.post("/api/tts", (req, res) => ttsHandler(req, res));
 app.post("/api/image", (req, res) => imageHandler(req, res));
 app.post("/api/video", (req, res) => videoHandler(req, res));
 app.post("/api/images", (req, res) => imagesHandler(req, res));
-app.post("/api/subscribe", (req, res) => subscribeHandler(req, res));
+app.post("/api/auth/signup", (req, res) => signupHandler(req, res));
+app.post("/api/auth/login", (req, res) => loginHandler(req, res));
+app.get("/api/auth/me", (req, res) => meHandler(req, res));
+app.post("/api/auth/update-profile", (req, res) => updateProfileHandler(req, res));
+app.post("/api/auth/resend-otp", (req, res) => resendOtpHandler(req, res));
+app.post("/api/auth/verify-otp", (req, res) => verifyOtpHandler(req, res));
+app.post("/api/auth/forgot-password", (req, res) => forgotPasswordHandler(req, res));
+app.post("/api/auth/reset-password", (req, res) => resetPasswordHandler(req, res));
 
 const PORT = process.env.PORT || 5050;
 const server = app.listen(PORT, () => {
