@@ -7,8 +7,164 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="PassPoint — AI tutor for African students (Nursery → SS3)" />
     <title>PassPoint — Learn Smarter, Achieve Greater</title>
+    <style>
+      /* Site-wide initial loader — pure CSS so it paints before the JS
+         bundle finishes loading. Mirrors src/components/Loader.jsx.
+         Removed by main.jsx once React mounts. */
+      #initial-loader {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        background: #070518;
+        overflow: hidden;
+        transition: opacity 0.2s ease;
+      }
+      #initial-loader .pp-glow {
+        position: absolute;
+        width: 55%;
+        height: 55%;
+        border-radius: 9999px;
+        pointer-events: none;
+        filter: blur(130px);
+        animation: pp-glow-pulse 5s ease-in-out infinite;
+      }
+      #initial-loader .pp-glow.a { top: -20%; left: -10%; background: rgba(79, 70, 229, 0.1); }
+      #initial-loader .pp-glow.b { bottom: -20%; right: -10%; background: rgba(147, 51, 234, 0.1); animation-delay: 1s; }
+      @keyframes pp-glow-pulse {
+        0%, 100% { transform: scale(1); opacity: 0.5; }
+        50%      { transform: scale(1.08); opacity: 0.8; }
+      }
+      #initial-loader .pp-spinner {
+        position: relative;
+        width: 72px;
+        height: 72px;
+      }
+      #initial-loader .pp-halo {
+        position: absolute;
+        inset: -8px;
+        border-radius: 9999px;
+        filter: blur(8px);
+        background: radial-gradient(circle, rgba(124,58,237,0.55), transparent 70%);
+        animation: pp-glow-pulse 2s ease-in-out infinite;
+      }
+      #initial-loader .pp-ring {
+        position: absolute;
+        border-radius: 9999px;
+      }
+      #initial-loader .pp-ring.outer {
+        inset: 0;
+        background: conic-gradient(from 0deg, #7c3aed, #4f46e5, #ec4899, transparent 75%);
+        -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 0);
+        mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 0);
+        animation: pp-spin 1s linear infinite;
+      }
+      #initial-loader .pp-ring.inner {
+        inset: 11px;
+        background: conic-gradient(from 180deg, #38bdf8, #7c3aed, transparent 65%);
+        -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 0);
+        mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 0);
+        animation: pp-spin-reverse 1.6s linear infinite;
+      }
+      #initial-loader .pp-orbit {
+        position: absolute;
+        inset: 0;
+        animation: pp-spin 1s linear infinite;
+      }
+      #initial-loader .pp-orbit span {
+        position: absolute;
+        top: -1px;
+        left: 50%;
+        width: 6px;
+        height: 6px;
+        border-radius: 9999px;
+        background: #fff;
+        transform: translateX(-50%);
+        box-shadow: 0 0 8px 2px rgba(255,255,255,0.85);
+      }
+      #initial-loader .pp-mark {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #initial-loader .pp-mark div {
+        background: #fff;
+        border-radius: 9999px;
+        padding: 6px;
+        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5);
+        animation: pp-bob 2.4s ease-in-out infinite;
+      }
+      #initial-loader .pp-mark img {
+        display: block;
+        width: 29px;
+        height: 29px;
+        border-radius: 9999px;
+        object-fit: cover;
+      }
+      @keyframes pp-spin {
+        to { transform: rotate(360deg); }
+      }
+      @keyframes pp-spin-reverse {
+        to { transform: rotate(-360deg); }
+      }
+      @keyframes pp-bob {
+        0%, 100% { transform: translateY(0) scale(1); }
+        50%      { transform: translateY(-4px) scale(1.03); }
+      }
+      #initial-loader .pp-label-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      #initial-loader .pp-label {
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        color: #9ca3af;
+      }
+      #initial-loader .pp-dots {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      #initial-loader .pp-dots span {
+        width: 4px;
+        height: 4px;
+        border-radius: 9999px;
+        background: #a78bfa;
+        animation: pp-dot-bounce 1s ease-in-out infinite;
+      }
+      #initial-loader .pp-dots span:nth-child(2) { animation-delay: 0.15s; }
+      #initial-loader .pp-dots span:nth-child(3) { animation-delay: 0.3s; }
+      @keyframes pp-dot-bounce {
+        0%, 80%, 100% { transform: translateY(0); opacity: 0.6; }
+        40%           { transform: translateY(-4px); opacity: 1; }
+      }
+    </style>
   </head>
   <body>
+    <div id="initial-loader">
+      <div class="pp-glow a"></div>
+      <div class="pp-glow b"></div>
+      <div class="pp-spinner">
+        <div class="pp-halo"></div>
+        <div class="pp-ring outer"></div>
+        <div class="pp-ring inner"></div>
+        <div class="pp-orbit"><span></span></div>
+        <div class="pp-mark"><div><img src="/passpoint-logo.jpeg" alt="" /></div></div>
+      </div>
+      <div class="pp-label-row">
+        <span class="pp-label">Loading PassPoint</span>
+        <span class="pp-dots"><span></span><span></span><span></span></span>
+      </div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

@@ -14,12 +14,12 @@ export default function Topbar({ onMenu }) {
     .toUpperCase();
 
   return (
-    <header className="h-16 bg-white border-b border-ink-100 flex items-center px-3 sm:px-6 gap-2 sm:gap-4 sticky top-0 z-20">
-      {/* Hamburger — mobile only */}
+    <header className="h-16 bg-[#0c0a21]/80 backdrop-blur-lg border-b border-white/10 flex items-center px-3 sm:px-6 gap-2 sm:gap-4 sticky top-0 z-20">
+      {/* Sidebar toggle — visible at every breakpoint */}
       <button
         onClick={onMenu}
-        className="lg:hidden w-10 h-10 rounded-lg hover:bg-ink-100 flex items-center justify-center text-ink-700 shrink-0"
-        aria-label="Open menu"
+        className="w-10 h-10 rounded-lg hover:bg-white/10 flex items-center justify-center text-gray-300 shrink-0"
+        aria-label="Toggle menu"
       >
         <svg
           width="22"
@@ -37,27 +37,27 @@ export default function Topbar({ onMenu }) {
       </button>
 
       <div className="relative flex-1 max-w-xl min-w-0">
-        <SearchIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-ink-500" />
+        <SearchIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
         <input
           type="search"
           placeholder="Search lessons, topics…"
-          className="w-full bg-ink-100/60 rounded-full text-sm pl-9 pr-4 py-2.5 outline-none focus:ring-2 focus:ring-brand-blue/30"
+          className="w-full bg-white/5 border border-white/10 text-white placeholder:text-gray-500 rounded-full text-sm pl-9 pr-4 py-2.5 outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500/40"
         />
       </div>
 
       <div className="ml-auto flex items-center gap-2 sm:gap-3 shrink-0">
         <div className="hidden sm:block text-right">
-          <div className="text-sm font-semibold text-ink-900 leading-tight">
+          <div className="text-sm font-semibold text-white leading-tight">
             {user?.name || "Student"}
           </div>
-          <div className="text-xs text-ink-500">{user?.classLevel || "JSS 1"}</div>
+          <div className="text-xs text-gray-400">{user?.classLevel || "JSS 1"}</div>
         </div>
         <button
           onClick={() => {
             logout();
             nav("/login");
           }}
-          className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-blue to-brand-orange text-white text-sm font-bold flex items-center justify-center shadow-card hover:opacity-90"
+          className="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white text-sm font-bold flex items-center justify-center shadow-lg hover:brightness-110"
           title="Click to sign out"
         >
           {initials}

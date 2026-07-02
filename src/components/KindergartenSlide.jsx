@@ -6,11 +6,15 @@
 //   { type: "kg-letter",  letter, word, emoji, photoHint? }
 //                                              — A for Apple (real DALL-E photo)
 //   { type: "kg-number",  n, word, emoji, color }        — counting
-//   { type: "kg-object",  name, emoji, color }           — what is this?
+//   { type: "kg-object",  name, emoji, color, photoHint? } — what is this? (real photo)
 //   { type: "kg-shape",   name, shape, emoji, color }    — circle/square/...
-//   { type: "kg-banner",  icon, label, color }           — intro / outro
+//   { type: "kg-banner",  icon, label, color, blocks? }   — intro / outro
 
 import LetterPhotoScene from "./LetterPhotoScene.jsx";
+import LetterLessonScene from "./LetterLessonScene.jsx";
+import WelcomeScene from "./WelcomeScene.jsx";
+import ObjectPhotoScene from "./ObjectPhotoScene.jsx";
+import { ArrowLeftIcon, ArrowRightIcon } from "./icons.jsx";
 
 export default function KindergartenSlide({
   section,
@@ -20,12 +24,20 @@ export default function KindergartenSlide({
   totalSlides,
   subject,
   topic,
+  speaking = false,
+  onPrevSlide,
+  onNextSlide,
+  canPrev = false,
+  canNext = false,
   onSentenceClick,
   onReplay,
 }) {
   if (!section) return null;
   const visual = section.visual || {};
-  const colorClass = visual.color || "from-blue-100 to-purple-100";
+  const isLetter = visual.type === "kg-letter";
+  const isBanner = visual.type === "kg-banner";
+  const isObject = visual.type === "kg-object";
+  const isFullBleed = isLetter || isBanner || isObject;
 
   // Find the live sentence (if this section is active) — shown as a
   // single big speech-bubble caption at the bottom.
@@ -39,43 +51,120 @@ export default function KindergartenSlide({
     <div
       key={section.id}
       className={[
-        "relative h-full w-full rounded-3xl shadow-2xl overflow-hidden flex flex-col",
-        "bg-gradient-to-br",
-        colorClass,
+        "relative h-full w-full rounded-[28px] shadow-[0_20px_50px_rgba(0,0,0,0.6)] overflow-hidden flex flex-col",
+        "bg-[#0e0c24] border border-purple-500/15",
         "slide-enter",
       ].join(" ")}
       style={{ fontFamily: "Fredoka, 'Baloo 2', 'Comic Sans MS', system-ui, sans-serif" }}
     >
-      {/* Drifting bubbles in the background — pure decoration */}
-      <BgBubbles />
+      {/* Soft ambient tint so the dark stage doesn't feel flat */}
+      <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/10 via-transparent to-purple-600/10 pointer-events-none" />
 
-      {/* Tiny header — subject + slide counter */}
-      <div className="relative z-10 px-6 py-3 flex items-center justify-between text-white">
-        <div className="bg-white/30 backdrop-blur px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider text-ink-900">
-          {subject} · {topic}
-        </div>
-        <div className="bg-white/30 backdrop-blur px-3 py-1 rounded-full text-xs font-bold text-ink-900 font-mono tabular-nums">
-          {slideNumber} / {totalSlides}
+      {/* Drifting bubbles in the background — pure decoration (dark scenes only) */}
+      {!isFullBleed && <BgBubbles />}
+
+      {/* Alphabet letters: full-bleed composed illustration + avatar */}
+      {isLetter && (
+        <LetterLessonScene
+          letter={visual.letter}
+          word={visual.word}
+          emoji={visual.emoji}
+        />
+      )}
+
+      {/* Intro / outro: full-bleed 3D welcome scene */}
+      {isBanner && (
+        <WelcomeScene icon={visual.icon} label={visual.label} blocks={visual.blocks} />
+      )}
+
+      {/* Objects / body parts: full-bleed real photo card */}
+      {isObject && (
+        <ObjectPhotoScene
+          name={visual.name}
+          emoji={visual.emoji}
+          photoHint={visual.photoHint}
+        />
+      )}
+
+      {/* Top capsule — slide counter only */}
+      <div className="relative z-20 px-4 sm:px-6 py-3 flex items-center justify-end">
+        <div className="bg-black/30 border border-white/10 backdrop-blur-md rounded-full px-3 sm:px-4 py-1.5 flex items-center shadow-lg shrink-0">
+          <span className="text-[11px] font-extrabold text-white tracking-widest font-mono tabular-nums">
+            {slideNumber} / {totalSlides}
+          </span>
         </div>
       </div>
 
-      {/* Main scene — fills the rest of the slide */}
+      {/* Main scene — fills the rest of the slide. For alphabet letters the
+          scene is rendered full-bleed above, so this is just a spacer that
+          keeps the caption bar pinned to the bottom. */}
       <div className="flex-1 relative z-10 flex items-center justify-center min-h-0 px-6 py-2">
-        <Scene visual={visual} onReplay={onReplay} />
+        {!isFullBleed && <Scene visual={visual} onReplay={onReplay} />}
       </div>
 
-      {/* Caption bubble at the bottom — shows the active sentence in big,
-          tappable text */}
-      <div className="relative z-10 px-6 pb-4 flex justify-center">
+      {/* Previous / Next slide arrows overlaid on the stage */}
+      {onPrevSlide && (
+        <button
+          onClick={onPrevSlide}
+          disabled={!canPrev}
+          className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white flex items-center justify-center hover:bg-black/60 hover:scale-110 active:scale-90 transition-all duration-300 z-30 shadow-lg disabled:opacity-25 disabled:hover:scale-100"
+          title="Previous slide"
+        >
+          <ArrowLeftIcon className="w-5 h-5" />
+        </button>
+      )}
+      {onNextSlide && (
+        <button
+          onClick={onNextSlide}
+          disabled={!canNext}
+          className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white flex items-center justify-center hover:bg-black/60 hover:scale-110 active:scale-90 transition-all duration-300 z-30 shadow-lg disabled:opacity-25 disabled:hover:scale-100"
+          title="Next slide"
+        >
+          <ArrowRightIcon className="w-5 h-5" />
+        </button>
+      )}
+
+      {/* Caption bar at the bottom — animated soundwave + the active
+          sentence in big, tappable text */}
+      <div className="relative z-20 px-6 pb-4 flex justify-center">
         <button
           onClick={() => onSentenceClick?.(sectionStartIdx)}
-          className="bg-white/95 backdrop-blur shadow-2xl rounded-full px-6 py-3 text-center max-w-2xl"
+          className="max-w-md bg-black/40 backdrop-blur-md border border-white/10 shadow-[0_12px_30px_-6px_rgba(0,0,0,0.5)] rounded-2xl px-5 py-2.5 flex flex-col items-center gap-1.5"
         >
-          <div className="text-xl sm:text-2xl md:text-3xl font-bold text-ink-900 leading-snug">
+          <SoundWave active={speaking} />
+          <div className="text-base sm:text-lg md:text-xl font-bold text-white leading-snug text-center drop-shadow">
             {activeSentence}
           </div>
         </button>
       </div>
+    </div>
+  );
+}
+
+// Pulsating multicolour soundwave shown in the caption bar while the AI
+// teacher is speaking. Purely cosmetic — mirrors the presenter's audio.
+function SoundWave({ active }) {
+  const heights = [3, 6, 9, 12, 14, 10, 6, 8, 12, 16, 12, 8, 5, 10, 14, 8, 4, 2];
+  return (
+    <div className="flex items-center justify-center gap-[3px] h-4">
+      {heights.map((h, i) => (
+        <span
+          key={i}
+          style={{
+            height: active ? `${h * 1.4}px` : "3px",
+            animationDelay: active ? `${(i % 6) * 0.15}s` : undefined,
+          }}
+          className={[
+            "w-[2.5px] rounded-full transition-all duration-300",
+            active ? "sound-bar" : "",
+            i % 3 === 0
+              ? "bg-purple-400"
+              : i % 2 === 0
+                ? "bg-pink-400"
+                : "bg-sky-400",
+          ].join(" ")}
+        />
+      ))}
     </div>
   );
 }
@@ -113,8 +202,8 @@ function LetterScene({ letter, word, emoji }) {
           {letter}
         </div>
         <div
-          className="text-[5rem] sm:text-[7rem] font-extrabold text-ink-700/70 leading-none -mt-3"
-          style={{ WebkitTextStroke: "2px rgba(15,23,42,0.1)" }}
+          className="text-[5rem] sm:text-[7rem] font-extrabold text-gray-300/80 leading-none -mt-3"
+          style={{ WebkitTextStroke: "2px rgba(255,255,255,0.1)" }}
         >
           {letter.toLowerCase()}
         </div>
@@ -131,14 +220,14 @@ function LetterScene({ letter, word, emoji }) {
 function NumberScene({ n, word, emoji }) {
   return (
     <div className="flex items-center justify-center gap-6 sm:gap-12 w-full max-w-5xl">
-      <div className="flex flex-col items-center">
+      <div className="flex flex-col items-center animate-[item-pop_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]">
         <div
           className="text-[12rem] sm:text-[18rem] md:text-[22rem] font-extrabold text-white drop-shadow-2xl leading-none animate-[bounce-soft_2.4s_ease-in-out_infinite] tabular-nums"
           style={{ WebkitTextStroke: "5px rgba(15,23,42,0.15)" }}
         >
           {n}
         </div>
-        <div className="text-3xl sm:text-5xl font-extrabold text-ink-700 mt-2">
+        <div className="text-3xl sm:text-5xl font-extrabold text-gray-200 mt-2">
           {word}
         </div>
       </div>
@@ -164,14 +253,18 @@ function NumberScene({ n, word, emoji }) {
 function ObjectScene({ name, emoji }) {
   return (
     <div className="flex flex-col items-center justify-center gap-4 w-full">
-      <div
-        className="text-[14rem] sm:text-[20rem] md:text-[26rem] leading-none animate-[bounce-soft_2.4s_ease-in-out_infinite]"
-        style={{ filter: "drop-shadow(0 14px 28px rgba(15,23,42,0.25))" }}
-      >
-        {emoji}
+      <div className="animate-[item-pop_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]">
+        <div
+          className="text-[14rem] sm:text-[20rem] md:text-[26rem] leading-none animate-[bounce-soft_2.4s_ease-in-out_infinite]"
+          style={{ filter: "drop-shadow(0 14px 28px rgba(15,23,42,0.25))" }}
+        >
+          {emoji}
+        </div>
       </div>
-      <div className="text-4xl sm:text-6xl md:text-7xl font-extrabold text-white drop-shadow-lg uppercase tracking-wide"
-        style={{ WebkitTextStroke: "3px rgba(15,23,42,0.15)" }}>
+      <div
+        className="text-4xl sm:text-6xl md:text-7xl font-extrabold text-white drop-shadow-lg uppercase tracking-wide animate-[step-in_0.4s_ease-out_0.15s_both]"
+        style={{ WebkitTextStroke: "3px rgba(15,23,42,0.15)" }}
+      >
         {name}
       </div>
     </div>
@@ -183,7 +276,7 @@ function ObjectScene({ name, emoji }) {
 function ShapeScene({ name, shape, emoji }) {
   return (
     <div className="flex items-center justify-center gap-6 sm:gap-12 w-full max-w-5xl">
-      <div className="flex flex-col items-center">
+      <div className="flex flex-col items-center animate-[item-pop_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]">
         <div className="w-[14rem] h-[14rem] sm:w-[20rem] sm:h-[20rem] md:w-[24rem] md:h-[24rem] flex items-center justify-center animate-[bounce-soft_2.4s_ease-in-out_infinite]"
           style={{ filter: "drop-shadow(0 10px 24px rgba(15,23,42,0.25))" }}>
           <ShapeSVG shape={shape} />
@@ -193,11 +286,13 @@ function ShapeScene({ name, shape, emoji }) {
           {name}
         </div>
       </div>
-      <div
-        className="text-[8rem] sm:text-[12rem] md:text-[16rem] leading-none animate-[gentle-bob_3s_ease-in-out_infinite]"
-        style={{ filter: "drop-shadow(0 10px 20px rgba(15,23,42,0.2))" }}
-      >
-        {emoji}
+      <div className="animate-[item-pop_0.5s_cubic-bezier(0.34,1.56,0.64,1)_0.15s_both]">
+        <div
+          className="text-[8rem] sm:text-[12rem] md:text-[16rem] leading-none animate-[gentle-bob_3s_ease-in-out_infinite]"
+          style={{ filter: "drop-shadow(0 10px 20px rgba(15,23,42,0.2))" }}
+        >
+          {emoji}
+        </div>
       </div>
     </div>
   );
@@ -306,7 +401,7 @@ function BgBubbles() {
       {bubbles.map((b, i) => (
         <div
           key={i}
-          className="absolute rounded-full bg-white/40 animate-[float_5s_ease-in-out_infinite]"
+          className="absolute rounded-full bg-white/5 animate-[float_5s_ease-in-out_infinite]"
           style={{
             left: b.left,
             top: b.top,

@@ -45,7 +45,7 @@ const shapesLesson = {
     {
       id: "intro",
       heading: "Let's Learn Shapes!",
-      visual: { type: "kg-banner", icon: "🔷", label: "Shapes Around Us", color: "from-blue-800 to-indigo-900" },
+      visual: { type: "kg-banner", icon: "🔷", label: "Shapes Around Us", color: "from-blue-800 to-indigo-900", blocks: ["●", "▲", "■"] },
       sentences: [
         "Hello little friends!",
         "Today we are going to learn about shapes.",
@@ -56,7 +56,7 @@ const shapesLesson = {
     {
       id: "outro",
       heading: "You Did It!",
-      visual: { type: "kg-banner", icon: "🎉", label: "You learned every shape!", color: "from-fuchsia-700 to-purple-900" },
+      visual: { type: "kg-banner", icon: "🎉", label: "You learned every shape!", color: "from-fuchsia-700 to-purple-900", blocks: ["★", "♥", "◆"] },
       sentences: [
         "Hooray!",
         "You learned about circles, squares, triangles and more.",

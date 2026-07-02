@@ -7,22 +7,22 @@
 // Nose/Mouth/Hair are peach-skin or red tones, so their bgs avoid the
 // matching pastel family they used to sit on.
 const BODY_PARTS = [
-  { name: "Eyes",  emoji: "👀", action: "see",   color: "from-sky-300 to-sky-200" },
-  { name: "Ears",  emoji: "👂", action: "hear",  color: "from-amber-300 to-amber-200" },
-  { name: "Nose",  emoji: "👃", action: "smell", color: "from-blue-300 to-blue-200" },
-  { name: "Mouth", emoji: "👄", action: "talk and eat", color: "from-indigo-300 to-indigo-200" },
-  { name: "Teeth", emoji: "🦷", action: "chew our food", color: "from-slate-700 to-slate-900" },
-  { name: "Tongue", emoji: "👅", action: "taste",  color: "from-lime-300 to-lime-200" },
-  { name: "Hands", emoji: "✋", action: "hold and clap", color: "from-emerald-300 to-emerald-200" },
-  { name: "Feet",  emoji: "🦶", action: "walk and run", color: "from-teal-300 to-teal-200" },
-  { name: "Hair",  emoji: "💇", action: "cover and protect our head", color: "from-violet-300 to-violet-200" },
-  { name: "Brain", emoji: "🧠", action: "think and learn", color: "from-yellow-300 to-amber-200" },
+  { name: "Eyes",  emoji: "👀", action: "see",   color: "from-sky-300 to-sky-200", photoHint: "human eyes close up" },
+  { name: "Ears",  emoji: "👂", action: "hear",  color: "from-amber-300 to-amber-200", photoHint: "human ear close up" },
+  { name: "Nose",  emoji: "👃", action: "smell", color: "from-blue-300 to-blue-200", photoHint: "human nose close up" },
+  { name: "Mouth", emoji: "👄", action: "talk and eat", color: "from-indigo-300 to-indigo-200", photoHint: "human mouth smiling close up" },
+  { name: "Teeth", emoji: "🦷", action: "chew our food", color: "from-slate-700 to-slate-900", photoHint: "human teeth smile close up" },
+  { name: "Tongue", emoji: "👅", action: "taste",  color: "from-lime-300 to-lime-200", photoHint: "human tongue close up" },
+  { name: "Hands", emoji: "✋", action: "hold and clap", color: "from-emerald-300 to-emerald-200", photoHint: "child hands" },
+  { name: "Feet",  emoji: "🦶", action: "walk and run", color: "from-teal-300 to-teal-200", photoHint: "child feet" },
+  { name: "Hair",  emoji: "💇", action: "cover and protect our head", color: "from-violet-300 to-violet-200", photoHint: "child hair" },
+  { name: "Brain", emoji: "🧠", action: "think and learn", color: "from-yellow-300 to-amber-200", photoHint: "human brain model" },
 ];
 
 const sections = BODY_PARTS.map((item, i) => ({
   id: `body-${item.name.toLowerCase()}`,
   heading: `My ${item.name}`,
-  visual: { type: "kg-object", name: item.name, emoji: item.emoji, color: item.color },
+  visual: { type: "kg-object", name: item.name, emoji: item.emoji, color: item.color, photoHint: item.photoHint },
   sentences: [
     `${item.name}.`,
     `These are my ${item.name}.`,
@@ -48,7 +48,7 @@ const scienceLesson = {
     {
       id: "intro",
       heading: "Let's Learn About Our Body!",
-      visual: { type: "kg-banner", icon: "🧒", label: "My Body", color: "from-emerald-200 to-teal-100" },
+      visual: { type: "kg-banner", icon: "🧒", label: "My Body", color: "from-emerald-200 to-teal-100", blocks: ["👀", "👂", "✋"] },
       sentences: [
         "Hello little stars!",
         "Today we will learn about parts of our body.",
@@ -59,7 +59,7 @@ const scienceLesson = {
     {
       id: "outro",
       heading: "Super Job!",
-      visual: { type: "kg-banner", icon: "🌟", label: "You know your body!", color: "from-amber-200 to-yellow-100" },
+      visual: { type: "kg-banner", icon: "🌟", label: "You know your body!", color: "from-amber-200 to-yellow-100", blocks: ["🧠", "🦶", "🌟"] },
       sentences: [
         "Amazing!",
         "You can name all the parts of your body.",

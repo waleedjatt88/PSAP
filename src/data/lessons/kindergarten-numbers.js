@@ -49,7 +49,7 @@ const numbersLesson = {
     {
       id: "intro",
       heading: "Let's Count!",
-      visual: { type: "kg-banner", icon: "🔢", label: "Counting 1 to 10", color: "from-blue-200 to-cyan-100" },
+      visual: { type: "kg-banner", icon: "🔢", label: "Counting 1 to 10", color: "from-blue-200 to-cyan-100", blocks: ["1", "2", "3"] },
       sentences: [
         "Hi friends!",
         "Today we are going to count from one to ten.",
@@ -60,7 +60,7 @@ const numbersLesson = {
     {
       id: "outro",
       heading: "You Did It!",
-      visual: { type: "kg-banner", icon: "🎊", label: "1, 2, 3… 10!", color: "from-violet-200 to-purple-100" },
+      visual: { type: "kg-banner", icon: "🎊", label: "1, 2, 3… 10!", color: "from-violet-200 to-purple-100", blocks: ["8", "9", "10"] },
       sentences: [
         "Brilliant!",
         "You counted from one all the way to ten.",

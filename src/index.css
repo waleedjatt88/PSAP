@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fredoka:wght@400;500;600;700&family=Baloo+2:wght@500;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fredoka:wght@400;500;600;700&family=Baloo+2:wght@500;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -32,6 +32,28 @@ body,
   background: transparent;
 }
 
+/* Hides the scrollbar while keeping the element scrollable */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Loader — inner ring spins the opposite way from the outer ring */
+@keyframes spin-reverse {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(-360deg); }
+}
+
+/* Water-fill hover effect — scrolls the wave crest tile sideways so the
+   water surface looks like it's rippling while it rises. */
+@keyframes wave-x {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
 /* Voice lesson — animate bars while speaking */
 @keyframes wave {
   0%, 100% { transform: scaleY(0.4); }
@@ -40,6 +62,36 @@ body,
 .wave-bar {
   transform-origin: bottom;
   animation: wave 0.9s ease-in-out infinite;
+}
+
+/* Generic fade-in used by lesson overlays (dark-theme skin) */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.animate-fade-in {
+  animation: fade-in 0.35s ease-out both;
+}
+
+/* Gentle idle sway for the composited teacher avatar. scaleX(-1) is baked
+   in so the horizontal flip is preserved while the transform animates. */
+@keyframes teacher-idle {
+  0%, 100% { transform: scaleX(-1) translateY(0) rotate(-1.2deg); }
+  50%      { transform: scaleX(-1) translateY(-6px) rotate(1.2deg); }
+}
+
+/* Center-anchored soundwave bars for the lesson caption bar */
+@keyframes sound-wave {
+  0%, 100% { transform: scaleY(0.35); }
+  50%      { transform: scaleY(1); }
+}
+.sound-bar {
+  transform-origin: center;
+  animation: sound-wave 1.2s ease-in-out infinite alternate;
 }
 
 /* Talking-avatar animations */

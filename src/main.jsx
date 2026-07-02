@@ -11,3 +11,11 @@ createRoot(document.getElementById("root")).render(
     </BrowserRouter>
   </StrictMode>,
 );
+
+// Fade out and remove the pure-CSS splash from index.html now that React
+// has taken over rendering.
+const splash = document.getElementById("initial-loader");
+if (splash) {
+  splash.style.opacity = "0";
+  setTimeout(() => splash.remove(), 200);
+}
