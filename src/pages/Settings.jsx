@@ -78,12 +78,8 @@ export default function Settings() {
 
         <button
           type="submit"
-<<<<<<< HEAD
-          className="bg-gradient-to-tr from-purple-600 to-indigo-600 hover:brightness-110 text-white font-semibold rounded-lg px-5 py-2 text-sm shadow-lg"
-=======
           disabled={saving}
-          className="bg-brand-blue hover:bg-brand-blue-dark disabled:opacity-60 text-white font-semibold rounded-lg px-5 py-2 text-sm"
->>>>>>> cc94425ce9eeadef505b1847e8c5e4db6454c115
+          className="bg-gradient-to-tr from-purple-600 to-indigo-600 hover:brightness-110 disabled:opacity-60 text-white font-semibold rounded-lg px-5 py-2 text-sm shadow-lg"
         >
           {saving ? "Saving…" : saved ? "Saved ✓" : "Save Changes"}
         </button>

@@ -97,60 +97,48 @@ export default function Login() {
           <div className="lg:hidden mb-8 bg-white rounded-xl px-2 py-1 shadow-lg w-fit">
             <Logo />
           </div>
-<<<<<<< HEAD
-          <h2 className="text-3xl font-extrabold text-white font-display">Welcome Back</h2>
-          <p className="text-sm text-gray-400 mt-1">Please login to your account</p>
-
-          <label className="block text-sm font-medium text-gray-300 mt-8 mb-1.5">
-=======
-          <h2 className="text-3xl font-extrabold text-ink-900">
+          <h2 className="text-3xl font-extrabold text-white font-display">
             {isSignup ? "Create your account" : "Welcome Back"}
           </h2>
-          <p className="text-sm text-ink-500 mt-1">
+          <p className="text-sm text-gray-400 mt-1">
             {isSignup ? "Join Pass Point Learning Institute" : "Please login to your account"}
           </p>
 
           {isSignup && (
             <>
-              <label className="block text-sm font-medium text-ink-700 mt-6 mb-1.5">
+              <label className="block text-sm font-medium text-gray-300 mt-6 mb-1.5">
                 Full name
               </label>
               <input
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="Adebayo John"
-                className="w-full border border-ink-300 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-blue/30"
+                className="w-full bg-white/5 border border-white/10 text-white placeholder:text-gray-500 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500/40"
                 required
               />
 
-              <label className="block text-sm font-medium text-ink-700 mt-4 mb-1.5">
+              <label className="block text-sm font-medium text-gray-300 mt-4 mb-1.5">
                 Class level
               </label>
               <select
                 value={classLevel}
                 onChange={(e) => setClassLevel(e.target.value)}
-                className="w-full border border-ink-300 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-blue/30 bg-white"
+                className="w-full bg-white/5 border border-white/10 text-white rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500/40"
               >
-                {CLASS_LEVELS.map((c) => <option key={c}>{c}</option>)}
+                {CLASS_LEVELS.map((c) => <option key={c} className="bg-[#0c0a21] text-white">{c}</option>)}
               </select>
             </>
           )}
 
-          <label className="block text-sm font-medium text-ink-700 mt-6 mb-1.5">
->>>>>>> cc94425ce9eeadef505b1847e8c5e4db6454c115
+          <label className="block text-sm font-medium text-gray-300 mt-6 mb-1.5">
             Email
           </label>
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-<<<<<<< HEAD
-            placeholder="admin@mail.com"
-            className="w-full bg-white/5 border border-white/10 text-white placeholder:text-gray-500 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500/40"
-=======
             placeholder="you@example.com"
-            className="w-full border border-ink-300 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-blue/30"
->>>>>>> cc94425ce9eeadef505b1847e8c5e4db6454c115
+            className="w-full bg-white/5 border border-white/10 text-white placeholder:text-gray-500 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500/40"
             required
           />
 
@@ -162,14 +150,9 @@ export default function Login() {
               type={showPw ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-<<<<<<< HEAD
-              placeholder="Enter your password"
-              className="w-full bg-white/5 border border-white/10 text-white placeholder:text-gray-500 rounded-lg px-4 py-2.5 pr-10 text-sm outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500/40"
-=======
               placeholder={isSignup ? "At least 6 characters" : "Enter your password"}
               minLength={6}
-              className="w-full border border-ink-300 rounded-lg px-4 py-2.5 pr-10 text-sm outline-none focus:ring-2 focus:ring-brand-blue/30"
->>>>>>> cc94425ce9eeadef505b1847e8c5e4db6454c115
+              className="w-full bg-white/5 border border-white/10 text-white placeholder:text-gray-500 rounded-lg px-4 py-2.5 pr-10 text-sm outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500/40"
               required
             />
             <button
@@ -182,42 +165,21 @@ export default function Login() {
             </button>
           </div>
 
-<<<<<<< HEAD
-          <div className="text-right mt-2">
-            <a className="text-xs font-medium text-purple-300 hover:text-white hover:underline" href="#">
-              Forgot Password
-            </a>
-          </div>
+          {!isSignup && (
+            <div className="text-right mt-2">
+              <a className="text-xs font-medium text-purple-300 hover:text-white hover:underline" href="#">
+                Forgot Password
+              </a>
+            </div>
+          )}
 
-          <button
-            type="submit"
-            className="w-full mt-6 bg-gradient-to-tr from-purple-600 to-indigo-600 hover:brightness-110 text-white font-semibold rounded-lg py-2.5 shadow-lg transition-all"
-          >
-            Sign In
-          </button>
-
-          <button
-            type="button"
-            onClick={googleLogin}
-            className="w-full mt-3 border border-white/10 hover:bg-white/5 text-white rounded-lg py-2.5 font-medium flex items-center justify-center gap-2 text-sm transition-colors"
-          >
-            <GoogleIcon />
-            Continue with Google
-          </button>
-
-          <div className="text-center text-xs text-gray-400 mt-6">
-            Didn't have an Account?{" "}
-            <a className="text-purple-300 font-semibold hover:text-white hover:underline" href="#">
-              Sign-up
-            </a>
-=======
           {error && (
-            <div className="mt-3 text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+            <div className="mt-3 text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
               {error}
             </div>
           )}
           {info && (
-            <div className="mt-3 text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
+            <div className="mt-3 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 rounded-lg px-3 py-2">
               {info}
             </div>
           )}
@@ -225,12 +187,12 @@ export default function Login() {
           <button
             type="submit"
             disabled={busy}
-            className="w-full mt-6 bg-brand-blue hover:bg-brand-blue-dark disabled:opacity-60 text-white font-semibold rounded-lg py-2.5 shadow-card transition-colors"
+            className="w-full mt-6 bg-gradient-to-tr from-purple-600 to-indigo-600 hover:brightness-110 disabled:opacity-60 text-white font-semibold rounded-lg py-2.5 shadow-lg transition-all"
           >
             {busy ? "Please wait…" : isSignup ? "Create account" : "Sign In"}
           </button>
 
-          <div className="text-center text-xs text-ink-500 mt-6">
+          <div className="text-center text-xs text-gray-400 mt-6">
             {isSignup ? "Already have an account?" : "Don't have an account?"}{" "}
             <button
               type="button"
@@ -239,11 +201,10 @@ export default function Login() {
                 setError(null);
                 setInfo(null);
               }}
-              className="text-brand-orange font-semibold hover:underline"
+              className="text-purple-300 font-semibold hover:text-white hover:underline"
             >
               {isSignup ? "Sign in" : "Sign up"}
             </button>
->>>>>>> cc94425ce9eeadef505b1847e8c5e4db6454c115
           </div>
         </form>
       </div>

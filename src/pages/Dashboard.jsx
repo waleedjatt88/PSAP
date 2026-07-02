@@ -1,10 +1,12 @@
-import { useEffect, useState, useCallback } from "react";
-import { Link } from "react-router-dom";
 import { useUser } from "../store/user";
-import { supabase } from "../lib/supabase";
-import { apiFetch } from "../lib/api";
+import { Link } from "react-router-dom";
+import { SUBJECTS, lessonHref } from "../data/curriculum";
 import { TargetIcon, FlameIcon, BookIcon, StarIcon } from "../components/icons";
 import heroImg from "../assets/hero.png";
+import mathImg from "../assets/Math.png";
+import scienceImg from "../assets/Science.png";
+
+const IMAGE_MAP = { math: mathImg, science: scienceImg };
 
 const stats = [
   { label: "Today Goal", value: "20 min", trend: "+8%", icon: TargetIcon, tint: "bg-purple-500/15 text-purple-300" },
@@ -13,69 +15,8 @@ const stats = [
   { label: "Total Points", value: "120", trend: "+15", icon: StarIcon, tint: "bg-indigo-500/15 text-indigo-300" },
 ];
 
-// Fetches every learning_path the current user is actively subscribed to,
-// plus the community row for each one. Uses the join expression so it's a
-// single round-trip; RLS on subscriptions guarantees we only see our own.
-async function loadMyPaths() {
-  const { data, error } = await supabase
-    .from("subscriptions")
-    .select(`
-      learning_path_id,
-      status,
-      expires_at,
-      learning_paths (
-        id, name, kind, description, icon, color_tint, sort_order,
-        communities ( id, name )
-      )
-    `)
-    .eq("status", "active")
-    .order("created_at", { ascending: true });
-
-  if (error) throw error;
-
-  return (data || [])
-    .map((row) => row.learning_paths)
-    .filter(Boolean)
-    .sort((a, b) => a.sort_order - b.sort_order);
-}
-
 export default function Dashboard() {
   const { user } = useUser();
-  const [paths, setPaths] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [granting, setGranting] = useState(false);
-
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      setPaths(await loadMyPaths());
-    } catch (err) {
-      setError(err.message || "Could not load your learning paths");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
-
-  const grantDemoAccess = async () => {
-    setGranting(true);
-    try {
-      await apiFetch("/api/subscribe", {
-        method: "POST",
-        body: JSON.stringify({ demo: true }),
-      });
-      await refresh();
-    } catch (err) {
-      setError(err.message || "Could not grant demo access");
-    } finally {
-      setGranting(false);
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -85,7 +26,6 @@ export default function Dashboard() {
           <h1 className="text-xl sm:text-2xl font-extrabold text-white font-display">
             Good Morning, {user?.name?.split(" ")[0] || "Student"}
           </h1>
-<<<<<<< HEAD
           <p className="text-gray-400 mt-1">
             You have <strong className="text-gray-200">{SUBJECTS.length} lessons</strong> ready for today.
           </p>
@@ -95,13 +35,6 @@ export default function Dashboard() {
           >
             View today's lessons →
           </Link>
-=======
-          <p className="text-ink-500 mt-1">
-            {paths.length > 0
-              ? <>You have <strong>{paths.length} learning path{paths.length === 1 ? "" : "s"}</strong> ready to continue.</>
-              : <>Get started by choosing what you want to learn.</>}
-          </p>
->>>>>>> cc94425ce9eeadef505b1847e8c5e4db6454c115
         </div>
         <img
           src={heroImg}
@@ -132,7 +65,6 @@ export default function Dashboard() {
       {/* My Learning Paths */}
       <div>
         <div className="flex items-center justify-between mb-3">
-<<<<<<< HEAD
           <h2 className="text-lg font-bold text-white font-display">Today's Lessons</h2>
           <Link
             to="/subjects"
@@ -179,110 +111,7 @@ export default function Dashboard() {
             );
           })}
         </div>
-=======
-          <h2 className="text-lg font-bold">My Learning Paths</h2>
-          <Link to="/subjects" className="text-xs font-semibold text-brand-blue hover:underline">
-            Browse catalog →
-          </Link>
-        </div>
-
-        {loading && <PathsSkeleton />}
-
-        {error && (
-          <div className="bg-red-50 border border-red-100 rounded-2xl p-4 text-sm text-red-700">
-            {error}
-          </div>
-        )}
-
-        {!loading && !error && paths.length === 0 && (
-          <EmptyState onGrant={grantDemoAccess} granting={granting} />
-        )}
-
-        {!loading && !error && paths.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-            {paths.map((p) => <PathCard key={p.id} path={p} />)}
-          </div>
-        )}
->>>>>>> cc94425ce9eeadef505b1847e8c5e4db6454c115
       </div>
-    </div>
-  );
-}
-
-function PathCard({ path }) {
-  const community = path.communities?.[0];
-  return (
-    <div className="rounded-2xl p-5 shadow-card bg-white border border-ink-100 hover:shadow-soft transition-shadow">
-      <div className="flex items-center gap-4">
-        <div
-          className={`w-16 h-16 rounded-xl flex items-center justify-center text-3xl shrink-0 ${path.color_tint || "bg-ink-100 text-ink-700"}`}
-        >
-          {path.icon || "📚"}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-xs text-ink-500 uppercase tracking-wide">
-            {path.kind === "exam" ? "Examination" : "Class"}
-          </div>
-          <div className="font-bold text-ink-900">{path.name}</div>
-          {path.description && (
-            <div className="text-xs text-ink-500 mt-0.5 line-clamp-2">{path.description}</div>
-          )}
-        </div>
-      </div>
-      <div className="flex items-center gap-2 mt-4">
-        <Link
-          to={`/path/${path.id}`}
-          className="flex-1 text-center bg-brand-blue hover:bg-brand-blue-dark text-white text-sm font-semibold px-4 py-2 rounded-full"
-        >
-          Continue →
-        </Link>
-        {community && (
-          <Link
-            to={`/community/${path.id}`}
-            className="text-sm font-semibold px-4 py-2 rounded-full border border-brand-orange text-brand-orange hover:bg-brand-orange hover:text-white transition-colors"
-          >
-            Join Community
-          </Link>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function PathsSkeleton() {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-      {[0, 1, 2, 3].map((i) => (
-        <div key={i} className="bg-white rounded-2xl p-5 shadow-card border border-ink-100 animate-pulse">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-xl bg-ink-100" />
-            <div className="flex-1 space-y-2">
-              <div className="h-3 bg-ink-100 rounded w-1/3" />
-              <div className="h-4 bg-ink-100 rounded w-2/3" />
-              <div className="h-3 bg-ink-100 rounded w-full" />
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function EmptyState({ onGrant, granting }) {
-  return (
-    <div className="rounded-2xl border-2 border-dashed border-ink-200 bg-white p-8 text-center">
-      <div className="text-4xl mb-2">📚</div>
-      <div className="font-semibold text-ink-900">No active subscriptions yet</div>
-      <p className="text-sm text-ink-500 mt-1 max-w-md mx-auto">
-        Once you subscribe to a class or examination, it will appear here for easy access.
-      </p>
-      <button
-        onClick={onGrant}
-        disabled={granting}
-        className="mt-4 bg-brand-orange hover:bg-brand-orange-dark disabled:opacity-60 text-white text-sm font-semibold px-5 py-2 rounded-full"
-      >
-        {granting ? "Granting…" : "Grant demo access (SS3, JAMB, WAEC, NECO, GCE)"}
-      </button>
     </div>
   );
 }
