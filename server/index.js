@@ -13,14 +13,17 @@ import ttsHandler from "../api/tts.js";
 import imageHandler from "../api/image.js";
 import videoHandler from "../api/video.js";
 import imagesHandler from "../api/images.js";
-import signupHandler from "../api/auth/signup.js";
-import loginHandler from "../api/auth/login.js";
-import meHandler from "../api/auth/me.js";
-import updateProfileHandler from "../api/auth/update-profile.js";
-import resendOtpHandler from "../api/auth/resend-otp.js";
-import verifyOtpHandler from "../api/auth/verify-otp.js";
-import forgotPasswordHandler from "../api/auth/forgot-password.js";
-import resetPasswordHandler from "../api/auth/reset-password.js";
+// Auth handlers live under /lib/auth/ (not /api/auth/) so that Vercel only
+// counts ONE serverless function for the whole auth surface — the dispatcher
+// at api/auth/[action].js. Hobby plan caps at 12 functions per deployment.
+import signupHandler from "../lib/auth/signup.js";
+import loginHandler from "../lib/auth/login.js";
+import meHandler from "../lib/auth/me.js";
+import updateProfileHandler from "../lib/auth/update-profile.js";
+import resendOtpHandler from "../lib/auth/resend-otp.js";
+import verifyOtpHandler from "../lib/auth/verify-otp.js";
+import forgotPasswordHandler from "../lib/auth/forgot-password.js";
+import resetPasswordHandler from "../lib/auth/reset-password.js";
 import { connectToDatabase } from "../lib/mongodb.js";
 
 dotenv.config();
