@@ -1,31 +1,59 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Logo from "../components/Logo";
-import { EyeIcon, GoogleIcon } from "../components/icons";
+import { EyeIcon } from "../components/icons";
 import { useUser } from "../store/user";
 import loginIllustration from "../assets/Login.png";
 
+const CLASS_LEVELS = [
+  "Nursery 1", "Nursery 2", "Nursery 3",
+  "Primary 1", "Primary 2", "Primary 3", "Primary 4", "Primary 5", "Primary 6",
+  "JSS 1", "JSS 2", "JSS 3",
+  "SS 1", "SS 2", "SS 3",
+];
+
 export default function Login() {
-  const { login } = useUser();
+  const { signIn, signUp } = useUser();
   const nav = useNavigate();
-  const [email, setEmail] = useState("poojitha@passpoint.ai");
-  const [password, setPassword] = useState("demo1234");
+
+  const [mode, setMode] = useState("signin");   // 'signin' | 'signup'
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [classLevel, setClassLevel] = useState("JSS 1");
   const [showPw, setShowPw] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [info, setInfo] = useState(null);
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
-    login({
-      name: email.split("@")[0].replace(/[^a-z]/gi, " ").replace(/\b\w/g, (c) => c.toUpperCase()) || "Poojitha",
-      email,
-      classLevel: "JSS 1",
-    });
-    nav("/dashboard");
+    setBusy(true);
+    setError(null);
+    setInfo(null);
+    try {
+      if (mode === "signin") {
+        await signIn({ email, password });
+        nav("/dashboard");
+      } else {
+        const { session } = await signUp({ email, password, fullName, classLevel });
+        if (session) {
+          // Email confirmation is off → straight in
+          nav("/dashboard");
+        } else {
+          // Email confirmation is on → tell the user to check their inbox
+          setInfo("Account created. Check your email to confirm your address before signing in.");
+          setMode("signin");
+        }
+      }
+    } catch (err) {
+      setError(err.message || "Authentication failed");
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const googleLogin = () => {
-    login({ name: "Poojitha", email: "poojitha.demo@gmail.com", classLevel: "JSS 1" });
-    nav("/dashboard");
-  };
+  const isSignup = mode === "signup";
 
   return (
     <div className="relative min-h-screen grid lg:grid-cols-2 bg-[#070518] overflow-hidden">
@@ -69,18 +97,60 @@ export default function Login() {
           <div className="lg:hidden mb-8 bg-white rounded-xl px-2 py-1 shadow-lg w-fit">
             <Logo />
           </div>
+<<<<<<< HEAD
           <h2 className="text-3xl font-extrabold text-white font-display">Welcome Back</h2>
           <p className="text-sm text-gray-400 mt-1">Please login to your account</p>
 
           <label className="block text-sm font-medium text-gray-300 mt-8 mb-1.5">
+=======
+          <h2 className="text-3xl font-extrabold text-ink-900">
+            {isSignup ? "Create your account" : "Welcome Back"}
+          </h2>
+          <p className="text-sm text-ink-500 mt-1">
+            {isSignup ? "Join Pass Point Learning Institute" : "Please login to your account"}
+          </p>
+
+          {isSignup && (
+            <>
+              <label className="block text-sm font-medium text-ink-700 mt-6 mb-1.5">
+                Full name
+              </label>
+              <input
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="Adebayo John"
+                className="w-full border border-ink-300 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-blue/30"
+                required
+              />
+
+              <label className="block text-sm font-medium text-ink-700 mt-4 mb-1.5">
+                Class level
+              </label>
+              <select
+                value={classLevel}
+                onChange={(e) => setClassLevel(e.target.value)}
+                className="w-full border border-ink-300 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-blue/30 bg-white"
+              >
+                {CLASS_LEVELS.map((c) => <option key={c}>{c}</option>)}
+              </select>
+            </>
+          )}
+
+          <label className="block text-sm font-medium text-ink-700 mt-6 mb-1.5">
+>>>>>>> cc94425ce9eeadef505b1847e8c5e4db6454c115
             Email
           </label>
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+<<<<<<< HEAD
             placeholder="admin@mail.com"
             className="w-full bg-white/5 border border-white/10 text-white placeholder:text-gray-500 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500/40"
+=======
+            placeholder="you@example.com"
+            className="w-full border border-ink-300 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-blue/30"
+>>>>>>> cc94425ce9eeadef505b1847e8c5e4db6454c115
             required
           />
 
@@ -92,8 +162,14 @@ export default function Login() {
               type={showPw ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+<<<<<<< HEAD
               placeholder="Enter your password"
               className="w-full bg-white/5 border border-white/10 text-white placeholder:text-gray-500 rounded-lg px-4 py-2.5 pr-10 text-sm outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500/40"
+=======
+              placeholder={isSignup ? "At least 6 characters" : "Enter your password"}
+              minLength={6}
+              className="w-full border border-ink-300 rounded-lg px-4 py-2.5 pr-10 text-sm outline-none focus:ring-2 focus:ring-brand-blue/30"
+>>>>>>> cc94425ce9eeadef505b1847e8c5e4db6454c115
               required
             />
             <button
@@ -106,6 +182,7 @@ export default function Login() {
             </button>
           </div>
 
+<<<<<<< HEAD
           <div className="text-right mt-2">
             <a className="text-xs font-medium text-purple-300 hover:text-white hover:underline" href="#">
               Forgot Password
@@ -133,6 +210,40 @@ export default function Login() {
             <a className="text-purple-300 font-semibold hover:text-white hover:underline" href="#">
               Sign-up
             </a>
+=======
+          {error && (
+            <div className="mt-3 text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+              {error}
+            </div>
+          )}
+          {info && (
+            <div className="mt-3 text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
+              {info}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={busy}
+            className="w-full mt-6 bg-brand-blue hover:bg-brand-blue-dark disabled:opacity-60 text-white font-semibold rounded-lg py-2.5 shadow-card transition-colors"
+          >
+            {busy ? "Please wait…" : isSignup ? "Create account" : "Sign In"}
+          </button>
+
+          <div className="text-center text-xs text-ink-500 mt-6">
+            {isSignup ? "Already have an account?" : "Don't have an account?"}{" "}
+            <button
+              type="button"
+              onClick={() => {
+                setMode(isSignup ? "signin" : "signup");
+                setError(null);
+                setInfo(null);
+              }}
+              className="text-brand-orange font-semibold hover:underline"
+            >
+              {isSignup ? "Sign in" : "Sign up"}
+            </button>
+>>>>>>> cc94425ce9eeadef505b1847e8c5e4db6454c115
           </div>
         </form>
       </div>

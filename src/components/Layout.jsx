@@ -5,7 +5,7 @@ import Topbar from "./Topbar";
 import { useUser } from "../store/user";
 
 export default function Layout() {
-  const { user } = useUser();
+  const { user, loading } = useUser();
   const location = useLocation();
   // Open by default on desktop, closed by default on mobile.
   const [sidebarOpen, setSidebarOpen] = useState(
@@ -20,6 +20,7 @@ export default function Layout() {
     }
   }, [location.pathname]);
 
+  if (loading) return <AuthLoader />;
   if (!user) return <Navigate to="/login" replace />;
 
   return (
@@ -50,6 +51,14 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
+    </div>
+  );
+}
+
+function AuthLoader() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-ink-100/40">
+      <div className="w-8 h-8 border-2 border-brand-blue border-t-transparent rounded-full animate-spin" />
     </div>
   );
 }
