@@ -2,18 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CloseIcon, MicIcon } from "./icons";
 import useSpeechRecognition from "../hooks/useSpeechRecognition";
 
-// Q&A overlay between the student and the AI teacher. Pops up when the
-// student wants to ask a question mid-lesson. The parent pauses the
-// lesson on open and resumes it on close.
-//
-// Props:
-//   open: boolean
-//   lesson: the full lesson (used to lock the AI to today's content)
-//   resumeContext: { sectionHeading, sentence } — where the lesson paused
-//   onClose: () => void  (parent resumes the lesson)
-//   classLevel
-//   preferredGender: "male" | "female" | "any" — drives the voice
-//   presenterName: e.g. "Mrs. Adesua · AI Tutor"
 export default function AskAIModal({
   open,
   lesson,
