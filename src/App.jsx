@@ -3,6 +3,9 @@ import { UserProvider } from "./store/user";
 import Layout from "./components/Layout";
 import RequireAuth from "./components/RequireAuth";
 import Login from "./pages/Login";
+import VerifyOtp from "./pages/VerifyOtp";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import Lesson from "./pages/Lesson";
 import Subjects from "./pages/Subjects";
@@ -11,6 +14,8 @@ import Bookmarks from "./pages/Bookmarks";
 import Accomplishments from "./pages/Accomplishments";
 import Settings from "./pages/Settings";
 import Homework from "./pages/Homework";
+import Path from "./pages/Path";
+import Community from "./pages/Community";
 import "./App.css";
 
 export default function App() {
@@ -18,6 +23,9 @@ export default function App() {
     <UserProvider>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/verify-otp" element={<VerifyOtp />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
         {/* /lesson is rendered OUTSIDE the dashboard Layout so it can
             take over the entire viewport like a real PowerPoint
@@ -34,6 +42,8 @@ export default function App() {
         {/* Everything else uses the regular dashboard chrome */}
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/path/:id" element={<Path />} />
+          <Route path="/community/:pathId" element={<Community />} />
           <Route path="/subjects" element={<Subjects />} />
           <Route path="/homework" element={<Homework />} />
           <Route path="/progress" element={<Progress />} />

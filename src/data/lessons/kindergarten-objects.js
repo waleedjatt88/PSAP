@@ -6,12 +6,12 @@ const OBJECTS = [
   { name: "Mango", emoji: "🥭", color: "from-orange-200 to-orange-100", category: "fruit" },
   { name: "Bus", emoji: "🚌", color: "from-amber-200 to-amber-100", category: "transport" },
   { name: "Car", emoji: "🚗", color: "from-rose-200 to-rose-100", category: "transport" },
-  { name: "Drum", emoji: "🥁", color: "from-fuchsia-200 to-pink-100", category: "music" },
-  { name: "Bell", emoji: "🔔", color: "from-amber-200 to-yellow-100", category: "music" },
+  { name: "Drum", emoji: "🥁", color: "from-fuchsia-200 to-pink-100", category: "music", photoHint: "drum musical instrument" },
+  { name: "Bell", emoji: "🔔", color: "from-amber-200 to-yellow-100", category: "music", photoHint: "bell ringing" },
   { name: "Cow", emoji: "🐄", color: "from-lime-200 to-lime-100", category: "animal" },
   { name: "Goat", emoji: "🐐", color: "from-emerald-200 to-emerald-100", category: "animal" },
-  { name: "Bag", emoji: "🎒", color: "from-violet-200 to-purple-100", category: "school" },
-  { name: "Book", emoji: "📕", color: "from-rose-200 to-pink-100", category: "school" },
+  { name: "Bag", emoji: "🎒", color: "from-violet-200 to-purple-100", category: "school", photoHint: "school backpack bag" },
+  { name: "Book", emoji: "📕", color: "from-rose-200 to-pink-100", category: "school", photoHint: "children's storybook" },
 ];
 
 const sections = OBJECTS.map((item, i) => ({
@@ -43,7 +43,7 @@ const objectsLesson = {
     {
       id: "intro",
       heading: "Let's Look!",
-      visual: { type: "kg-banner", icon: "👀", label: "What is this?", color: "from-sky-200 to-cyan-100" },
+      visual: { type: "kg-banner", icon: "👀", label: "What is this?", color: "from-sky-200 to-cyan-100", blocks: ["🍌", "🚌", "🥁"] },
       sentences: [
         "Hello friends!",
         "Today we will look at things you see every day.",
@@ -54,7 +54,7 @@ const objectsLesson = {
     {
       id: "outro",
       heading: "Super Star!",
-      visual: { type: "kg-banner", icon: "⭐", label: "You named them all!", color: "from-amber-200 to-orange-100" },
+      visual: { type: "kg-banner", icon: "⭐", label: "You named them all!", color: "from-amber-200 to-orange-100", blocks: ["🐄", "🎒", "⭐"] },
       sentences: [
         "Amazing job!",
         "You can name so many things now.",

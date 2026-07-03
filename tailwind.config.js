@@ -22,6 +22,10 @@ export default {
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
+        display: ["Space Grotesk", "Inter", "system-ui", "sans-serif"],
+      },
+      screens: {
+        xs: "480px",
       },
       boxShadow: {
         soft: "0 4px 20px rgba(15, 23, 42, 0.06)",

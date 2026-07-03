@@ -1,6 +1,7 @@
 // Local dev Express server. On Vercel the API is served by the serverless
 // functions in /api/*.js instead. Both share the same logic via lib/provider.js.
 import express from "express";
+
 import cors from "cors";
 import dotenv from "dotenv";
 import healthHandler from "../api/health.js";
@@ -12,11 +13,46 @@ import ttsHandler from "../api/tts.js";
 import imageHandler from "../api/image.js";
 import videoHandler from "../api/video.js";
 import imagesHandler from "../api/images.js";
+// Auth handlers live under /lib/auth/ (not /api/auth/) so that Vercel only
+// counts ONE serverless function for the whole auth surface — the dispatcher
+// at api/auth/[action].js. Hobby plan caps at 12 functions per deployment.
+import signupHandler from "../lib/auth/signup.js";
+import loginHandler from "../lib/auth/login.js";
+import meHandler from "../lib/auth/me.js";
+import updateProfileHandler from "../lib/auth/update-profile.js";
+import resendOtpHandler from "../lib/auth/resend-otp.js";
+import verifyOtpHandler from "../lib/auth/verify-otp.js";
+import forgotPasswordHandler from "../lib/auth/forgot-password.js";
+import resetPasswordHandler from "../lib/auth/reset-password.js";
+import { connectToDatabase } from "../lib/mongodb.js";
 
 dotenv.config();
 
+// Connect to MongoDB on startup
+connectToDatabase().catch((err) => {
+  console.error("[passpoint-server] MongoDB connection error on startup:", err.message);
+});
+
 const app = express();
-app.use(cors());
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "X-CSRF-Token",
+      "X-Requested-With",
+      "Accept",
+      "Accept-Version",
+      "Content-Length",
+      "Content-MD5",
+      "Content-Type",
+      "Date",
+      "X-Api-Version",
+      "Authorization",
+    ],
+    credentials: true,
+  })
+);
 app.use(express.json({ limit: "2mb" }));
 
 // Tiny adapter: Express req/res are compatible enough with Vercel's signature
@@ -31,12 +67,20 @@ app.post("/api/tts", (req, res) => ttsHandler(req, res));
 app.post("/api/image", (req, res) => imageHandler(req, res));
 app.post("/api/video", (req, res) => videoHandler(req, res));
 app.post("/api/images", (req, res) => imagesHandler(req, res));
+app.post("/api/auth/signup", (req, res) => signupHandler(req, res));
+app.post("/api/auth/login", (req, res) => loginHandler(req, res));
+app.get("/api/auth/me", (req, res) => meHandler(req, res));
+app.post("/api/auth/update-profile", (req, res) => updateProfileHandler(req, res));
+app.post("/api/auth/resend-otp", (req, res) => resendOtpHandler(req, res));
+app.post("/api/auth/verify-otp", (req, res) => verifyOtpHandler(req, res));
+app.post("/api/auth/forgot-password", (req, res) => forgotPasswordHandler(req, res));
+app.post("/api/auth/reset-password", (req, res) => resetPasswordHandler(req, res));
 
 const PORT = process.env.PORT || 5050;
 const server = app.listen(PORT, () => {
   const provider = (process.env.AI_PROVIDER || "openai").toLowerCase();
-  console.log(`[passpoint-server] running on http://localhost:${PORT}`);
-  console.log(`[passpoint-server] provider=${provider}`);
+  console.log(`[🤖 passpoint-server] running on http://localhost:${PORT}`);
+  console.log(`[🚀 passpoint-server] provider=${provider}`);
 });
 // Without this, a port-in-use error silently exits with code 0 and the
 // `concurrently` log just says "exited" with no clue why. Surface it.

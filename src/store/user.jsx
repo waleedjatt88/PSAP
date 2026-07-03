@@ -1,35 +1,72 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { getToken, setToken } from "../lib/api";
+import { signup, login, fetchMe, updateProfileRequest } from "../lib/authApi";
 
 const UserCtx = createContext(null);
 
-export function UserProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    try {
-      const raw = localStorage.getItem("pp_user");
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  });
+// Shape stored in context:
+//   { id, email, name, classLevel, avatar, isVerified }
+// Or null when signed out. `loading` is true until the stored JWT (if any)
+// has been checked against /api/auth/me on first mount; guards should
+// render a spinner while that's true.
 
-  const login = (data) => {
-    const next = {
-      name: data.name || "Poojitha",
-      email: data.email || "demo@passpoint.ai",
-      classLevel: data.classLevel || "JSS 1",
-      avatar: data.avatar || null,
+export function UserProvider({ children }) {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!getToken()) {
+        setLoading(false);
+        return;
+      }
+      try {
+        const { user: me } = await fetchMe();
+        if (!cancelled) setUser(me);
+      } catch {
+        setToken(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
     };
-    localStorage.setItem("pp_user", JSON.stringify(next));
-    setUser(next);
+  }, []);
+
+  // Called after signup verification issues a token, so the new session is
+  // applied without a second round trip through /api/auth/login.
+  const applySession = useCallback(({ token, user: sessionUser }) => {
+    setToken(token);
+    setUser(sessionUser);
+  }, []);
+
+  const signIn = async ({ email, password }) => {
+    const data = await login({ email, password });
+    applySession(data);
+    return data;
   };
 
-  const logout = () => {
-    localStorage.removeItem("pp_user");
+  const signUp = async ({ email, password, fullName, classLevel }) => {
+    return signup({ email, password, fullName, classLevel });
+  };
+
+  const signOut = async () => {
+    setToken(null);
     setUser(null);
   };
 
+  const updateProfile = async (patch) => {
+    if (!user) throw new Error("Not signed in");
+    const { user: updated } = await updateProfileRequest(patch);
+    setUser(updated);
+  };
+
   return (
-    <UserCtx.Provider value={{ user, login, logout }}>
+    <UserCtx.Provider
+      value={{ user, loading, signIn, signUp, signOut, updateProfile, applySession }}
+    >
       {children}
     </UserCtx.Provider>
   );

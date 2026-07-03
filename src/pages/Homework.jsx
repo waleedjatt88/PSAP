@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { useUser } from "../store/user";
 import { SUBJECTS, findSubject } from "../data/curriculum";
 import { getLesson } from "../data/lessons/index.js";
+import Loader from "../components/Loader.jsx";
 
 // Homework marking page. Student picks the subject, snaps a photo of
 // their paper, the AI marks it (via /api/grade) and optionally emails
@@ -95,25 +96,25 @@ export default function Homework() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-extrabold text-ink-900">Homework Marking</h1>
-        <p className="text-ink-500 text-sm">
+        <h1 className="text-2xl font-extrabold text-white font-display">Homework Marking</h1>
+        <p className="text-gray-400 text-sm">
           Snap a photo of your completed work and the AI tutor will mark it,
           point out mistakes, and send the report to your parent.
         </p>
       </div>
 
       {/* Step 1: pick subject + image */}
-      <div className="bg-white rounded-2xl shadow-card p-5 space-y-4">
+      <div className="bg-[#0c0a21]/60 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-5 space-y-4">
         <div className="grid sm:grid-cols-2 gap-4">
           <label className="block">
-            <div className="text-xs font-semibold text-ink-700 mb-1.5">Subject</div>
+            <div className="text-xs font-semibold text-gray-300 mb-1.5">Subject</div>
             <select
               value={subjectId}
               onChange={(e) => setSubjectId(e.target.value)}
-              className="w-full border border-ink-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-brand-blue/30"
+              className="w-full border border-white/10 rounded-lg px-3 py-2 text-sm bg-white/5 text-white outline-none focus:ring-2 focus:ring-purple-500/40"
             >
               {SUBJECTS.map((s) => (
-                <option key={s.id} value={s.id}>
+                <option key={s.id} value={s.id} className="bg-[#0c0a21] text-white">
                   {s.name} · {s.topics[0]?.title}
                 </option>
               ))}
@@ -121,7 +122,7 @@ export default function Homework() {
           </label>
 
           <div>
-            <div className="text-xs font-semibold text-ink-700 mb-1.5">
+            <div className="text-xs font-semibold text-gray-300 mb-1.5">
               Photo of your work
             </div>
             <input
@@ -134,7 +135,7 @@ export default function Homework() {
             />
             <button
               onClick={pickFile}
-              className="w-full border-2 border-dashed border-ink-300 hover:border-brand-blue rounded-lg px-3 py-2 text-sm text-ink-700 hover:text-brand-blue text-left"
+              className="w-full border-2 border-dashed border-white/15 hover:border-purple-500/50 rounded-lg px-3 py-2 text-sm text-gray-300 hover:text-white text-left transition-colors"
             >
               📷 {fileName || "Take photo or upload image"}
             </button>
@@ -146,20 +147,21 @@ export default function Homework() {
             <img
               src={image}
               alt="Homework preview"
-              className="max-h-60 rounded-lg border border-ink-100 shadow-card"
+              className="max-h-60 rounded-lg border border-white/10 shadow-xl"
             />
             <button
               onClick={mark}
               disabled={marking}
-              className="bg-brand-blue hover:bg-brand-blue-dark text-white text-sm font-semibold px-5 py-2.5 rounded-full disabled:opacity-50"
+              className="inline-flex items-center gap-2 bg-gradient-to-tr from-purple-600 to-indigo-600 hover:brightness-110 text-white text-sm font-semibold px-5 py-2.5 rounded-full disabled:opacity-50 shadow-lg"
             >
+              {marking && <Loader size={16} withLogo={false} />}
               {marking ? "AI is marking…" : "✨ Mark with AI"}
             </button>
           </div>
         )}
 
         {error && (
-          <div className="bg-rose-50 border border-rose-200 text-rose-900 text-sm rounded-xl p-3">
+          <div className="bg-rose-500/10 border border-rose-500/30 text-rose-200 text-sm rounded-xl p-3">
             ⚠️ {error}
           </div>
         )}
@@ -167,34 +169,34 @@ export default function Homework() {
 
       {/* Step 2: results */}
       {result && (
-        <div className="bg-white rounded-2xl shadow-card p-5 space-y-5">
+        <div className="bg-[#0c0a21]/60 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-5 space-y-5">
           <div className="grid sm:grid-cols-3 gap-3">
             <ScoreCard
               label="Score"
               value={`${result.score ?? 0} / ${result.total ?? 0}`}
               hint={`${result.percentage ?? 0}%`}
-              color="text-brand-blue"
+              color="text-purple-300"
             />
             <ScoreCard
               label="Grade"
               value={result.grade || "—"}
               hint=""
-              color="text-emerald-600"
+              color="text-emerald-400"
             />
             <ScoreCard
               label="Questions marked"
               value={String(result.questions?.length || 0)}
               hint=""
-              color="text-ink-900"
+              color="text-white"
             />
           </div>
 
           {result.overallFeedback && (
             <div>
-              <div className="text-xs font-semibold text-ink-700 mb-1.5">
+              <div className="text-xs font-semibold text-gray-300 mb-1.5">
                 Teacher's note
               </div>
-              <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-sm text-ink-700">
+              <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-3 text-sm text-gray-300">
                 {result.overallFeedback}
               </div>
             </div>
@@ -202,7 +204,7 @@ export default function Homework() {
 
           {result.questions?.length > 0 && (
             <div>
-              <div className="text-xs font-semibold text-ink-700 mb-2">
+              <div className="text-xs font-semibold text-gray-300 mb-2">
                 Question by question
               </div>
               <ul className="space-y-2">
@@ -212,12 +214,12 @@ export default function Homework() {
                     className={[
                       "border rounded-xl p-3 text-sm",
                       q.isCorrect
-                        ? "border-emerald-200 bg-emerald-50"
-                        : "border-rose-200 bg-rose-50",
+                        ? "border-emerald-500/30 bg-emerald-500/10"
+                        : "border-rose-500/30 bg-rose-500/10",
                     ].join(" ")}
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div className="font-semibold text-ink-900">
+                      <div className="font-semibold text-white">
                         Q{q.number}. {q.question}
                       </div>
                       <div
@@ -231,7 +233,7 @@ export default function Homework() {
                         {q.isCorrect ? "✓" : "✗"} {q.marksAwarded}/{q.marksAvailable}
                       </div>
                     </div>
-                    <div className="text-xs text-ink-700 mt-1.5 grid sm:grid-cols-2 gap-1">
+                    <div className="text-xs text-gray-300 mt-1.5 grid sm:grid-cols-2 gap-1">
                       <div>
                         <strong>Your answer:</strong> {q.studentAnswer}
                       </div>
@@ -240,7 +242,7 @@ export default function Homework() {
                       </div>
                     </div>
                     {q.feedback && (
-                      <div className="text-xs text-ink-700 mt-1.5">
+                      <div className="text-xs text-gray-300 mt-1.5">
                         💡 {q.feedback}
                       </div>
                     )}
@@ -252,13 +254,13 @@ export default function Homework() {
 
           {result.suggestions?.length > 0 && (
             <div>
-              <div className="text-xs font-semibold text-ink-700 mb-1.5">
+              <div className="text-xs font-semibold text-gray-300 mb-1.5">
                 What to practise next
               </div>
-              <ul className="space-y-1 text-sm text-ink-700">
+              <ul className="space-y-1 text-sm text-gray-300">
                 {result.suggestions.map((s, i) => (
                   <li key={i} className="flex items-start gap-2">
-                    <span className="text-brand-orange">→</span>
+                    <span className="text-amber-400">→</span>
                     {s}
                   </li>
                 ))}
@@ -267,8 +269,8 @@ export default function Homework() {
           )}
 
           {/* Step 3: email the parent */}
-          <div className="border-t border-ink-100 pt-4">
-            <div className="text-xs font-semibold text-ink-700 mb-1.5">
+          <div className="border-t border-white/10 pt-4">
+            <div className="text-xs font-semibold text-gray-300 mb-1.5">
               📧 Send this report to your parent
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
@@ -277,27 +279,30 @@ export default function Homework() {
                 value={parentEmail}
                 onChange={(e) => setParentEmail(e.target.value)}
                 placeholder="parent@email.com"
-                className="flex-1 border border-ink-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-brand-blue/30"
+                className="flex-1 border border-white/10 rounded-lg px-3 py-2 text-sm bg-white/5 text-white placeholder:text-gray-500 outline-none focus:ring-2 focus:ring-purple-500/40"
               />
               <button
                 onClick={sendReport}
                 disabled={
                   !parentEmail || emailStatus?.state === "sending"
                 }
-                className="bg-brand-orange hover:bg-brand-orange-dark text-white text-sm font-semibold px-5 py-2.5 rounded-full disabled:opacity-50"
+                className="relative overflow-hidden text-white text-sm font-semibold px-5 py-2.5 rounded-full disabled:opacity-50 shadow-lg"
               >
-                {emailStatus?.state === "sending"
-                  ? "Sending…"
-                  : "Send report"}
+                <span className="absolute inset-0 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600" />
+                <span className="relative">
+                  {emailStatus?.state === "sending"
+                    ? "Sending…"
+                    : "Send report"}
+                </span>
               </button>
             </div>
             {emailStatus?.state === "done" && emailStatus.sent && (
-              <div className="mt-2 bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs rounded-lg p-2">
+              <div className="mt-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-200 text-xs rounded-lg p-2">
                 ✓ Email sent to <strong>{parentEmail}</strong>.
               </div>
             )}
             {emailStatus?.state === "done" && !emailStatus.sent && (
-              <div className="mt-2 bg-amber-50 border border-amber-200 text-amber-900 text-xs rounded-lg p-2 space-y-1">
+              <div className="mt-2 bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs rounded-lg p-2 space-y-1">
                 <div>
                   ⚠️ Email provider not configured. {emailStatus.reason}
                 </div>
@@ -309,14 +314,14 @@ export default function Homework() {
                     <iframe
                       title="Email preview"
                       srcDoc={emailStatus.previewHtml}
-                      className="w-full h-80 mt-2 rounded border border-ink-200 bg-white"
+                      className="w-full h-80 mt-2 rounded border border-white/10 bg-white"
                     />
                   </details>
                 )}
               </div>
             )}
             {emailStatus?.state === "error" && (
-              <div className="mt-2 bg-rose-50 border border-rose-200 text-rose-900 text-xs rounded-lg p-2">
+              <div className="mt-2 bg-rose-500/10 border border-rose-500/30 text-rose-200 text-xs rounded-lg p-2">
                 ⚠️ {emailStatus.error}
               </div>
             )}
@@ -329,12 +334,12 @@ export default function Homework() {
 
 function ScoreCard({ label, value, hint, color }) {
   return (
-    <div className="bg-ink-100/40 rounded-xl p-3">
-      <div className="text-[10px] uppercase tracking-wide text-ink-500 font-bold">
+    <div className="bg-white/5 border border-white/10 rounded-xl p-3">
+      <div className="text-[10px] uppercase tracking-wide text-gray-400 font-bold">
         {label}
       </div>
       <div className={`text-2xl font-extrabold ${color}`}>{value}</div>
-      {hint && <div className="text-xs text-ink-500">{hint}</div>}
+      {hint && <div className="text-xs text-gray-400">{hint}</div>}
     </div>
   );
 }
