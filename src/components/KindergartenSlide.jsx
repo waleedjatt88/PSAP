@@ -12,6 +12,10 @@
 
 import LetterPhotoScene from "./LetterPhotoScene.jsx";
 import LetterLessonScene from "./LetterLessonScene.jsx";
+import NumberLessonScene from "./NumberLessonScene.jsx";
+import ShapeLessonScene from "./ShapeLessonScene.jsx";
+import { numberImage } from "../data/lessons/numberAssets.js";
+import { shapeImage } from "../data/lessons/shapeAssets.js";
 import WelcomeScene from "./WelcomeScene.jsx";
 import ObjectPhotoScene from "./ObjectPhotoScene.jsx";
 import { ArrowLeftIcon, ArrowRightIcon } from "./icons.jsx";
@@ -37,7 +41,11 @@ export default function KindergartenSlide({
   const isLetter = visual.type === "kg-letter";
   const isBanner = visual.type === "kg-banner";
   const isObject = visual.type === "kg-object";
-  const isFullBleed = isLetter || isBanner || isObject;
+  // Numbers/shapes with dedicated artwork render full-bleed like the
+  // letters; the rest fall back to their CSS scenes below.
+  const isNumberPhoto = visual.type === "kg-number" && !!numberImage(visual.n);
+  const isShapePhoto = visual.type === "kg-shape" && !!shapeImage(visual.shape);
+  const isFullBleed = isLetter || isBanner || isObject || isNumberPhoto || isShapePhoto;
 
   // Find the live sentence (if this section is active) — shown as a
   // single big speech-bubble caption at the bottom.
@@ -69,6 +77,21 @@ export default function KindergartenSlide({
           letter={visual.letter}
           word={visual.word}
           emoji={visual.emoji}
+        />
+      )}
+
+      {/* Numbers with artwork: full-bleed composed illustration + avatar */}
+      {isNumberPhoto && (
+        <NumberLessonScene n={visual.n} word={visual.word} emoji={visual.emoji} />
+      )}
+
+      {/* Shapes with artwork: full-bleed composed illustration + avatar */}
+      {isShapePhoto && (
+        <ShapeLessonScene
+          name={visual.name}
+          shape={visual.shape}
+          emoji={visual.emoji}
+          example={visual.example}
         />
       )}
 
@@ -216,18 +239,63 @@ function LetterScene({ letter, word, emoji }) {
   );
 }
 
+// Glossy toy palette per digit — face gradient + darker extrusion side,
+// matching the colourful 3D letters from the alphabet illustrations.
+const NUMBER_3D_COLORS = {
+  1: { light: "#fca5a5", face: "#ef4444", dark: "#991b1b" },
+  2: { light: "#fcd34d", face: "#f59e0b", dark: "#92400e" },
+  3: { light: "#f9a8d4", face: "#ec4899", dark: "#9d174d" },
+  4: { light: "#fdba74", face: "#f97316", dark: "#9a3412" },
+  5: { light: "#fde047", face: "#eab308", dark: "#854d0e" },
+  6: { light: "#bef264", face: "#84cc16", dark: "#3f6212" },
+  7: { light: "#6ee7b7", face: "#10b981", dark: "#065f46" },
+  8: { light: "#5eead4", face: "#14b8a6", dark: "#115e59" },
+  9: { light: "#67e8f9", face: "#06b6d4", dark: "#155e75" },
+  10: { light: "#7dd3fc", face: "#0ea5e9", dark: "#075985" },
+};
+
+// Layered text-shadows that fake a chunky 3D extrusion behind the digit.
+function extrusionShadow(dark) {
+  const layers = Array.from({ length: 12 }, (_, i) => `${i + 1}px ${i + 1.5}px 0 ${dark}`);
+  layers.push("0 34px 40px rgba(0,0,0,0.55)");
+  return layers.join(", ");
+}
+
 // Big number on one side, that many objects arranged on the other
 function NumberScene({ n, word, emoji }) {
+  const c = NUMBER_3D_COLORS[n] || NUMBER_3D_COLORS[1];
   return (
     <div className="flex items-center justify-center gap-6 sm:gap-12 w-full max-w-5xl">
-      <div className="flex flex-col items-center animate-[item-pop_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]">
+      <div className="flex flex-col items-center animate-[item-pop_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]" style={{ perspective: "900px" }}>
         <div
-          className="text-[12rem] sm:text-[18rem] md:text-[22rem] font-extrabold text-white drop-shadow-2xl leading-none animate-[bounce-soft_2.4s_ease-in-out_infinite] tabular-nums"
-          style={{ WebkitTextStroke: "5px rgba(15,23,42,0.15)" }}
+          className="relative leading-none animate-[number-3d_3.2s_ease-in-out_infinite]"
+          style={{ transformStyle: "preserve-3d" }}
         >
-          {n}
+          {/* Extruded base — solid colour + stacked shadows for depth */}
+          <div
+            className="text-[12rem] sm:text-[18rem] md:text-[22rem] font-extrabold leading-none tabular-nums"
+            style={{ color: c.face, textShadow: extrusionShadow(c.dark) }}
+          >
+            {n}
+          </div>
+          {/* Glossy face — gradient clipped to the same glyph, stacked on top */}
+          <div
+            aria-hidden
+            className="absolute inset-0 text-[12rem] sm:text-[18rem] md:text-[22rem] font-extrabold leading-none tabular-nums"
+            style={{
+              backgroundImage: `linear-gradient(160deg, #ffffff 0%, ${c.light} 22%, ${c.face} 58%, ${c.dark} 105%)`,
+              WebkitBackgroundClip: "text",
+              backgroundClip: "text",
+              color: "transparent",
+            }}
+          >
+            {n}
+          </div>
         </div>
-        <div className="text-3xl sm:text-5xl font-extrabold text-gray-200 mt-2">
+        <div
+          className="text-3xl sm:text-5xl font-extrabold mt-4"
+          style={{ color: c.light, textShadow: `2px 3px 0 ${c.dark}, 0 10px 18px rgba(0,0,0,0.4)` }}
+        >
           {word}
         </div>
       </div>
