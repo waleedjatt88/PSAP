@@ -23,6 +23,8 @@ const sections = NUMBERS.map((item, i) => ({
     `${item.word}.`,
     `This is the number ${item.n}.`,
     `Let's count. ${countingLine(item.n, item.emoji)}`,
+    `Say it with me. ${item.word}!`,
+    `Now a question. What number is this?`,
     i < NUMBERS.length - 1
       ? `Wonderful! Next number is coming.`
       : `Amazing! You can count all the way to ten now.`,

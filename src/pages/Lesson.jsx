@@ -26,7 +26,7 @@ import LessonSlide from "../components/LessonSlide";
 import KindergartenSlide from "../components/KindergartenSlide";
 import useTeleprompter from "../hooks/useTeleprompter";
 import useSpeechRecognition from "../hooks/useSpeechRecognition";
-import { findSubject, findTopic } from "../data/curriculum";
+import { SUBJECTS, findSubject, findTopic, lessonHref } from "../data/curriculum";
 import { getLesson, flattenLesson } from "../data/lessons/index.js";
 import { letterImage, TEACHER_AVATAR } from "../data/lessons/alphabetAssets.js";
 
@@ -51,11 +51,12 @@ export default function Lesson() {
   const tele = useTeleprompter(sentences, {
     preferredGender: subject.voiceGender || "any",
     classLevel: lesson?.classLevel,
-    onSentenceEnd: async ({ text }) => {
+    onSentenceEnd: async ({ idx, text }) => {
       // Only the kindergarten flow runs the verify mini-game — older
       // students don't pause mid-lesson to chant words back.
       if (!isKindergarten) return;
-      const target = extractRepeatTarget(text);
+      const target =
+        extractRepeatTarget(text) || extractQuestionTarget(text, flat[idx]);
       if (!target) return;
       await runVerify(target);
     },
@@ -150,8 +151,18 @@ export default function Lesson() {
   const [verifyAttempt, setVerifyAttempt] = useState(0);
   // The actual matching is done off-state via refs so it lives across
   // promise resolutions without re-render races.
-  const verifyTargetRef = useRef(null);  // lowercased word we're listening for
+  const verifyTargetRef = useRef(null);  // array of accepted answers we're listening for
   const verifyResolverRef = useRef(null); // resolve(true|false) when heard / timed out
+  // Bumped on every new verify AND on cancel — a running runVerify()
+  // compares its own generation after every await and bails out silently
+  // when it no longer matches (e.g. the child said "next" mid-question).
+  const verifyGenRef = useRef(0);
+  // True for the WHOLE runVerify() run, including the gaps between
+  // listening windows while a retry prompt is being spoken. Those gaps
+  // are where stray mic input used to leak into the AI chat and put two
+  // teacher voices on screen at once — this flag keeps the AI chat and
+  // every other voice flow locked out until the question is settled.
+  const verifyActiveRef = useRef(false);
 
   const isKindergarten = lesson?.classLevel === "Kindergarten";
 
@@ -162,14 +173,53 @@ export default function Lesson() {
       if (!lower) return;
       const tail = lower.slice(-80);
 
+      // Voice navigation — "next lesson" jumps straight to the next
+      // topic; "next" moves one slide forward (rolling into the next
+      // lesson from the last slide); "go back" returns one slide.
+      // Detected once here; it also breaks out of an active question.
+      const navCmd = /\bnext lesson\b/.test(tail)
+        ? "lesson"
+        : /\b(next|move on)\b/.test(tail)
+          ? "forward"
+          : /\b(go back|previous)\b/.test(tail)
+            ? "back"
+            : null;
+      const runNav = () => {
+        if (navCmd === "lesson") goToNextLesson();
+        else if (navCmd === "forward") navBySpeech(1);
+        else navBySpeech(-1);
+      };
+
       // Verify mode wins over everything else — when the teacher just
-      // asked the child to repeat a word, the only thing we care about
-      // is whether they said it.
+      // asked the child to repeat a word (or answer a question), the
+      // only thing we care about is whether they said it. Accepted
+      // forms is an array ("five" and "5") matched on word boundaries
+      // so a stray letter inside another word doesn't count as correct.
       if (verifyTargetRef.current) {
-        const target = verifyTargetRef.current;
-        if (tail.includes(target)) {
+        const targets = verifyTargetRef.current;
+        if (
+          targets.some((t) =>
+            new RegExp(`\\b${escapeRegExp(t)}\\b`, "i").test(tail),
+          )
+        ) {
           verifyResolverRef.current?.(true);
+        } else if (navCmd) {
+          runNav();
         }
+        return;
+      }
+
+      // Between listening windows of the same question (a retry prompt
+      // is being spoken) — nothing may interrupt except navigation.
+      // This is what used to leak into the AI chat and produce TWO
+      // teacher voices talking over each other.
+      if (verifyActiveRef.current) {
+        if (navCmd) runNav();
+        return;
+      }
+
+      if (navCmd) {
+        runNav();
         return;
       }
 
@@ -200,7 +250,9 @@ export default function Lesson() {
 
   // ─── Direct AI chat used by the kindergarten voice loop ────────────
   async function askAIDirect(text) {
-    if (aiBusy) return;
+    // Never talk over an active "say it with me" / question round —
+    // one teacher voice at a time.
+    if (aiBusy || verifyActiveRef.current) return;
     lastUserTextRef.current = text;
     if (tele.state === "playing") tele.pause();
     voiceCmd.stop(); // mute mic while we think + speak
@@ -295,10 +347,10 @@ export default function Lesson() {
   }
 
   // One round of listening for the target word. Resolves true if the
-  // child's mic transcript contains the word within the timeout.
-  function listenForWord(targetLower, timeoutMs = 5000) {
+  // child's mic transcript contains any accepted form within the timeout.
+  function listenForWord(targets, timeoutMs = 5000) {
     return new Promise((resolve) => {
-      verifyTargetRef.current = targetLower;
+      verifyTargetRef.current = targets;
       // Make sure the mic is on
       if (voiceCmd.supported && !voiceCmd.listening) voiceCmd.start();
       const timer = setTimeout(() => {
@@ -323,31 +375,60 @@ export default function Lesson() {
     "Nearly there! Can you say",
   ];
 
+  // Cancel any in-flight verify: unblock listenForWord, silence the
+  // prompt being spoken, and clear the UI. The generation bump makes the
+  // still-running runVerify() loop return without speaking another word
+  // — otherwise the previous letter's question keeps playing on top of
+  // the slide/lesson the child just navigated to.
+  function cancelVerify() {
+    verifyGenRef.current++;
+    verifyActiveRef.current = false;
+    verifyResolverRef.current?.(false);
+    verifyTargetRef.current = null;
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+    setVerifyTarget(null);
+    setVerifyAttempt(0);
+  }
+
   async function runVerify(rawTarget) {
+    const myGen = ++verifyGenRef.current;
+    verifyActiveRef.current = true;
     const targetWord = rawTarget.trim();
-    const targetLower = targetWord.toLowerCase();
+    const targets = acceptedAnswers(targetWord);
+    setAiReply(""); // drop any lingering chat bubble — one teacher at a time
     setVerifyTarget(targetWord);
     setVerifyAttempt(1);
 
-    for (let attempt = 1; attempt <= MAX_VERIFY_ATTEMPTS; attempt++) {
-      setVerifyAttempt(attempt);
-      if (attempt > 1) {
-        const prompt = RETRIES[(attempt - 2) % RETRIES.length];
-        await speakAndWait(`${prompt} ${targetWord}.`);
+    try {
+      for (let attempt = 1; attempt <= MAX_VERIFY_ATTEMPTS; attempt++) {
+        setVerifyAttempt(attempt);
+        if (attempt > 1) {
+          const prompt = RETRIES[(attempt - 2) % RETRIES.length];
+          await speakAndWait(`${prompt} ${targetWord}.`);
+          if (verifyGenRef.current !== myGen) return false; // cancelled
+        }
+        const heard = await listenForWord(targets, 5000);
+        if (verifyGenRef.current !== myGen) return false; // cancelled
+        if (heard) {
+          const praise = PRAISES[Math.floor(Math.random() * PRAISES.length)];
+          await speakAndWait(`${praise} ${targetWord}!`);
+          setVerifyTarget(null);
+          setVerifyAttempt(0);
+          return true;
+        }
       }
-      const heard = await listenForWord(targetLower, 5000);
-      if (heard) {
-        const praise = PRAISES[Math.floor(Math.random() * PRAISES.length)];
-        await speakAndWait(`${praise} ${targetWord}!`);
-        setVerifyTarget(null);
-        setVerifyAttempt(0);
-        return true;
-      }
+      await speakAndWait(`That's okay. Let's keep going.`);
+      if (verifyGenRef.current !== myGen) return false; // cancelled
+      setVerifyTarget(null);
+      setVerifyAttempt(0);
+      return false;
+    } finally {
+      // Only clear the busy flag if this run is still the latest one —
+      // a cancel + newer verify may already own it.
+      if (verifyGenRef.current === myGen) verifyActiveRef.current = false;
     }
-    await speakAndWait(`That's okay. Let's keep going.`);
-    setVerifyTarget(null);
-    setVerifyAttempt(0);
-    return false;
   }
 
   // "Say it with me. Apple." → "Apple"
@@ -359,6 +440,98 @@ export default function Lesson() {
     m = text.match(/now let's clap[.,!]?\s*([A-Za-z])(?:,\s*\1){1,}/i);
     if (m) return m[1].trim();
     return null;
+  }
+
+  // "Now a question. What number is this?" → the answer lives in the
+  // section the sentence belongs to (word for numbers, name for shapes,
+  // letter for the alphabet). Returns null for non-question sentences.
+  function extractQuestionTarget(text, flatItem) {
+    if (!text || !/what (number|shape|letter|word) is this/i.test(text)) {
+      return null;
+    }
+    const section = sections.find((s) => s.id === flatItem?.sectionId);
+    const v = section?.visual;
+    return v?.word || v?.name || v?.letter || null;
+  }
+
+  function escapeRegExp(s) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  // Speech recognition often writes small numbers as digits ("5" for
+  // "five"), so a number answer is accepted in both spellings.
+  const NUMBER_WORD_DIGITS = {
+    one: "1", two: "2", three: "3", four: "4", five: "5",
+    six: "6", seven: "7", eight: "8", nine: "9", ten: "10",
+  };
+  function acceptedAnswers(word) {
+    const lower = word.toLowerCase();
+    const forms = [lower];
+    if (NUMBER_WORD_DIGITS[lower]) forms.push(NUMBER_WORD_DIGITS[lower]);
+    return forms;
+  }
+
+  // ─── Voice navigation ("next", "go back", "next lesson") ───────────
+  // Continuous recognition keeps appending to one transcript, so the
+  // same command can arrive twice in quick succession — the timestamp
+  // guard swallows the echo. Stopping the mic clears the transcript;
+  // the kindergarten mic-management effect restarts it afterwards.
+  const lastNavAtRef = useRef(0);
+  function navGuard() {
+    const now = Date.now();
+    if (now - lastNavAtRef.current < 1500) return false;
+    lastNavAtRef.current = now;
+    return true;
+  }
+
+  function navBySpeech(dir) {
+    if (!navGuard()) return;
+    const nextIdx = activeSlideIdx + dir;
+    if (nextIdx >= 0 && nextIdx < sections.length) {
+      cancelVerify(); // kill any pending question from the old slide
+      voiceCmd.stop();
+      const target = sections[nextIdx];
+      setManualSlide(target.id);
+      const startIdx = sectionStarts[target.id];
+      if (startIdx >= 0) tele.jumpTo(startIdx);
+    } else if (dir > 0) {
+      goToNextLessonInner();
+    }
+  }
+
+  function goToNextLesson() {
+    if (!navGuard()) return;
+    goToNextLessonInner();
+  }
+
+  // Next topic in this subject, else the first topic of the next
+  // subject in the same class tier (Letters → Numbers → … → Science).
+  function goToNextLessonInner() {
+    const topics = subject?.topics || [];
+    const topicIdx = topics.findIndex((t) => t.title === topic.title);
+    const nextTopic = topics[topicIdx + 1];
+    let href = null;
+    if (nextTopic) {
+      href = lessonHref(subject.id, nextTopic.title);
+    } else {
+      const tierSubjects = SUBJECTS.filter(
+        (s) => s.classTier === subject.classTier,
+      );
+      const subjIdx = tierSubjects.findIndex((s) => s.id === subject.id);
+      const nextSubject = tierSubjects[subjIdx + 1];
+      if (nextSubject?.topics?.length) {
+        href = lessonHref(nextSubject.id, nextSubject.topics[0].title);
+      }
+    }
+    if (!href) return; // already on the very last lesson
+    cancelVerify(); // kill any pending question from the old lesson
+    voiceCmd.stop();
+    tele.stop();
+    navigate(href);
+    // Same route, new query params — the component stays mounted, so we
+    // kick the teleprompter off from the top once the new lesson's
+    // sentences have flowed into it (next render + ref sync).
+    setTimeout(() => tele.jumpTo(0), 800);
   }
 
   // ─── Continuous-mic management for Kindergarten ────────────────────
@@ -553,9 +726,14 @@ export default function Lesson() {
 
   function goToSlide(idx) {
     const target = sections[idx];
-    if (target) setManualSlide(target.id);
+    if (!target) return;
+    cancelVerify(); // kill any pending question from the old slide
+    setManualSlide(target.id);
+    const startIdx = sectionStarts[target.id];
+    if (startIdx >= 0) tele.jumpTo(startIdx);
   }
   function startSlide() {
+    cancelVerify(); // a pending question belongs to the old position
     const startIdx = sectionStarts[activeSection.id];
     if (startIdx >= 0) tele.jumpTo(startIdx);
   }
@@ -987,7 +1165,7 @@ export default function Lesson() {
         </div>
 
         {/* Center: stage + mode tabs */}
-        <div className="flex-1 min-w-0 flex flex-col">
+        <div className="relative flex-1 min-w-0 flex flex-col">
           {/* Mobile-only mini avatar header — hidden in present mode */}
           {!presentMode && (
           <div className="lg:hidden bg-[#0c0a21]/70 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-2.5 mb-3 flex items-center gap-3">
@@ -1053,6 +1231,23 @@ export default function Lesson() {
               />
             )}
           </div>
+
+          {/* Inline AI reply bubble — bottom of stage, kindergarten only.
+              Lives inside the stage column (not the full-screen root) so
+              it centers over the slide itself, not the whole app width —
+              otherwise it drifts off-center whenever a side panel is open. */}
+          {isKindergarten && aiReply && (
+            <div className="absolute bottom-20 sm:bottom-24 left-1/2 -translate-x-1/2 z-30 max-w-sm px-4 pointer-events-none">
+              <div className="bg-white shadow-2xl rounded-2xl px-4 py-2.5 border border-rose-100 animate-[fadeIn_0.25s_ease-out]">
+                <div className="text-[9px] uppercase tracking-wider font-bold text-rose-500 mb-0.5">
+                  Aunty Adesua
+                </div>
+                <div className="text-xs sm:text-sm text-ink-900 leading-snug whitespace-pre-wrap">
+                  {aiReply}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right lesson-plan panel — collapsible (in-flow on xl, overlay below) */}
@@ -1075,20 +1270,6 @@ export default function Lesson() {
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider shadow-lg backdrop-blur border bg-amber-400/95 text-ink-900 border-amber-300/50">
             <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
             {`Your turn! Say "${verifyTarget}" (${verifyAttempt}/${MAX_VERIFY_ATTEMPTS})`}
-          </div>
-        </div>
-      )}
-
-      {/* Inline AI reply bubble — bottom of stage, kindergarten only */}
-      {isKindergarten && aiReply && (
-        <div className="absolute bottom-36 sm:bottom-40 left-1/2 -translate-x-1/2 z-30 max-w-xl px-4 pointer-events-none">
-          <div className="bg-white shadow-2xl rounded-3xl px-5 py-3 border border-rose-100 animate-[fadeIn_0.25s_ease-out]">
-            <div className="text-[10px] uppercase tracking-wider font-bold text-rose-500 mb-0.5">
-              Aunty Adesua
-            </div>
-            <div className="text-sm sm:text-base text-ink-900 leading-snug whitespace-pre-wrap">
-              {aiReply}
-            </div>
           </div>
         </div>
       )}

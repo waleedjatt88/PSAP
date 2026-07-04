@@ -1,9 +1,22 @@
 import { Link } from "react-router-dom";
 import { SUBJECTS, lessonHref } from "../data/curriculum";
 import mathImg from "../assets/Math.png";
-import scienceImg from "../assets/Science.png";
+import kgLettersImg from "../assets/images/svg (1).png";
+import kgNumbersImg from "../assets/images/svg (2).png";
+import kgObjectsImg from "../assets/images/svg (3).png";
+import kgShapesImg from "../assets/images/svg (4).png";
+import basicScienceImg from "../assets/images/svg (5).png";
+import kgBodyImg from "../assets/images/svg (6).png";
 
-const IMAGE_MAP = { math: mathImg, science: scienceImg };
+const IMAGE_MAP = {
+  math: mathImg,
+  science: basicScienceImg,
+  "kg-letters": kgLettersImg,
+  "kg-numbers": kgNumbersImg,
+  "kg-objects": kgObjectsImg,
+  "kg-shapes": kgShapesImg,
+  "kg-body": kgBodyImg,
+};
 
 const TIERS = [
   {
@@ -110,7 +123,7 @@ function SubjectCard({ subject: s, playful }) {
             <img
               src={IMAGE_MAP[s.image]}
               alt=""
-              className="w-12 h-12 sm:w-14 sm:h-14 object-contain"
+              className="w-full h-full object-cover rounded-2xl"
             />
           ) : (
             s.emoji

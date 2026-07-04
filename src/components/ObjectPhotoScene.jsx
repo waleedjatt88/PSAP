@@ -1,8 +1,9 @@
 // ObjectPhotoScene — composed real-photo scene for "kg-object" visuals
 // (Object Recognition + My Body), matching the alphabet/number/shape
 // lesson stage design:
-//   • a full-bleed real stock photo of the object (Pexels, fetched at
-//     runtime via useWordPhoto),
+//   • a full-bleed illustrated background from the bundled assets when
+//     one exists for this object (src/assets/images/what (N).png), else
+//     a real stock photo (Pexels, fetched at runtime via useWordPhoto),
 //   • the pointing teacher avatar composited on top (white background
 //     removed at runtime via chroma-key),
 //   • a floating "Hello little stars!" speech bubble, and
@@ -14,15 +15,25 @@
 import useWordPhoto from "../hooks/useWordPhoto.js";
 import useChromaKey from "../hooks/useChromaKey.js";
 import { TEACHER_POINTED } from "../data/lessons/alphabetAssets.js";
+import { objectImage } from "../data/lessons/objectAssets.js";
 
 export default function ObjectPhotoScene({ name, emoji, photoHint }) {
-  const { photo, status } = useWordPhoto(name, photoHint);
+  const bg = objectImage(name);
+  // Skip the Pexels fetch entirely when we already have bundled artwork.
+  const { photo, status } = useWordPhoto(bg ? null : name, photoHint);
   const avatar = useChromaKey(TEACHER_POINTED);
 
   return (
     <div className="absolute inset-0 overflow-hidden">
-      {/* Full-bleed real photo (emoji fallback while loading / on failure) */}
-      {status === "loading" ? (
+      {/* Full-bleed illustration (bundled asset, Pexels photo, or emoji fallback) */}
+      {bg ? (
+        <img
+          src={bg}
+          alt={name}
+          className="absolute inset-0 w-full h-full object-cover select-none"
+          draggable={false}
+        />
+      ) : status === "loading" ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-indigo-900 to-purple-900">
           <div className="text-8xl sm:text-9xl animate-bounce">{emoji || "🖼️"}</div>
           <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wide text-white/70 px-3 text-center">
@@ -50,7 +61,7 @@ export default function ObjectPhotoScene({ name, emoji, photoHint }) {
       <div className="absolute inset-0 bg-gradient-to-b from-black/15 via-transparent to-black/35 pointer-events-none" />
 
       {/* Pexels credit */}
-      {status !== "loading" && photo?.credit?.name && (
+      {!bg && status !== "loading" && photo?.credit?.name && (
         <a
           href={photo.credit.url || "#"}
           target="_blank"
@@ -71,30 +82,29 @@ export default function ObjectPhotoScene({ name, emoji, photoHint }) {
       />
 
       {/* Speech bubble — top-left, above the teacher */}
-      <div className="absolute top-[4%] left-3 sm:left-5 max-w-[150px] sm:max-w-[190px] bg-white text-[#2c2264] rounded-[20px] shadow-[0_12px_35px_-8px_rgba(0,0,0,0.5)] px-3.5 py-2.5 border border-white/40 z-10 animate-[float_6s_ease-in-out_infinite]">
-        <h4 className="text-[#1e154b] font-black text-[11px] sm:text-[12px] leading-tight">
+      <div className="absolute top-[4%] left-3 sm:left-5 max-w-[120px] sm:max-w-[150px] bg-white text-[#2c2264] rounded-2xl shadow-[0_10px_28px_-8px_rgba(0,0,0,0.5)] px-2.5 py-2 border border-white/40 z-10 animate-[float_6s_ease-in-out_infinite]">
+        <h4 className="text-[#1e154b] font-black text-[9px] sm:text-[10px] leading-tight">
           Hello little stars! ⭐
         </h4>
-        <p className="text-[#322869] font-bold text-[10.5px] sm:text-[11.5px] leading-snug mt-1">
-          Look carefully! <br />
-          Can you name this{" "}
-          <span className="text-red-500 font-extrabold text-[13px]">
+        <p className="text-[#322869] font-bold text-[9px] sm:text-[10px] leading-snug mt-0.5">
+          Look carefully! Can you name this{" "}
+          <span className="text-red-500 font-extrabold text-[11px]">
             {emoji}
           </span>
           ?
         </p>
-        <div className="mt-1.5 flex items-center gap-1.5 pt-1 border-t border-purple-100">
+        <div className="mt-1 flex items-center gap-1 pt-1 border-t border-purple-100">
           <span className="flex items-center gap-0.5">
             <span className="w-[2px] h-1.5 bg-[#7c3aed] rounded-full animate-bounce" />
-            <span className="w-[2px] h-3 bg-[#ec4899] rounded-full animate-bounce [animation-delay:0.15s]" />
+            <span className="w-[2px] h-2.5 bg-[#ec4899] rounded-full animate-bounce [animation-delay:0.15s]" />
             <span className="w-[2px] h-1 bg-[#38bdf8] rounded-full animate-bounce [animation-delay:0.3s]" />
           </span>
-          <span className="text-[9px] font-black text-[#7c3aed] uppercase tracking-wider">
+          <span className="text-[8px] font-black text-[#7c3aed] uppercase tracking-wider">
             Aunty Adesua
           </span>
         </div>
         {/* Tail pointing down toward the teacher below */}
-        <div className="absolute left-8 bottom-[-8px] w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[8px] border-t-white" />
+        <div className="absolute left-6 bottom-[-7px] w-0 h-0 border-l-[7px] border-l-transparent border-r-[7px] border-r-transparent border-t-[7px] border-t-white" />
       </div>
 
       {/* Glowing object name pill */}

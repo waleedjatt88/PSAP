@@ -25,6 +25,7 @@ const sections = SHAPES.map((item, i) => ({
     `This shape is called a ${item.name}.`,
     `A ${item.example} looks like a ${item.name}.`,
     `Say it with me. ${item.name}!`,
+    `Now a question. What shape is this?`,
     i < SHAPES.length - 1
       ? `Lovely! Let's see the next shape.`
       : `Wonderful! You know all the shapes now.`,
@@ -34,7 +35,7 @@ const sections = SHAPES.map((item, i) => ({
 const shapesLesson = {
   id: "kg-shapes",
   subjectId: "kg-maths",
-  subjectName: "Maths",
+  subjectName: "Geometry",
   classLevel: "Kindergarten",
   topic: "Shapes Around Us",
   title: "Shapes Around Us",

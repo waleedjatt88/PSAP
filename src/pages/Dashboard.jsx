@@ -4,9 +4,22 @@ import { SUBJECTS, lessonHref } from "../data/curriculum";
 import { TargetIcon, FlameIcon, BookIcon, StarIcon } from "../components/icons";
 import heroImg from "../assets/hero.png";
 import mathImg from "../assets/Math.png";
-import scienceImg from "../assets/Science.png";
+import kgLettersImg from "../assets/images/svg (1).png";
+import kgNumbersImg from "../assets/images/svg (2).png";
+import kgObjectsImg from "../assets/images/svg (3).png";
+import kgShapesImg from "../assets/images/svg (4).png";
+import basicScienceImg from "../assets/images/svg (5).png";
+import kgBodyImg from "../assets/images/svg (6).png";
 
-const IMAGE_MAP = { math: mathImg, science: scienceImg };
+const IMAGE_MAP = {
+  math: mathImg,
+  science: basicScienceImg,
+  "kg-letters": kgLettersImg,
+  "kg-numbers": kgNumbersImg,
+  "kg-objects": kgObjectsImg,
+  "kg-shapes": kgShapesImg,
+  "kg-body": kgBodyImg,
+};
 
 const stats = [
   { label: "Today Goal", value: "20 min", trend: "+8%", icon: TargetIcon, tint: "bg-purple-500/15 text-purple-300" },
@@ -89,7 +102,7 @@ export default function Dashboard() {
                     <img
                       src={IMAGE_MAP[s.image]}
                       alt={s.name}
-                      className="w-14 h-14 object-contain"
+                      className="w-full h-full object-cover rounded-xl"
                     />
                   ) : (
                     <span className="text-3xl">{s.emoji}</span>
