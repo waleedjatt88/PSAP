@@ -1206,7 +1206,10 @@ export default function Lesson() {
                 onNextSlide={() => goToSlide(activeSlideIdx + 1)}
                 canPrev={activeSlideIdx > 0}
                 canNext={activeSlideIdx < sections.length - 1}
-                onSentenceClick={(globalIdx) => tele.jumpTo(globalIdx)}
+                onSentenceClick={(globalIdx) => {
+                  tele.jumpTo(globalIdx);
+                  enterPresent();
+                }}
                 onReplay={() => {
                   const startIdx = sectionStarts[activeSection?.id];
                   if (startIdx >= 0) tele.jumpTo(startIdx);
@@ -1227,7 +1230,10 @@ export default function Lesson() {
                 onNextSlide={() => goToSlide(activeSlideIdx + 1)}
                 canPrev={activeSlideIdx > 0}
                 canNext={activeSlideIdx < sections.length - 1}
-                onSentenceClick={(globalIdx) => tele.jumpTo(globalIdx)}
+                onSentenceClick={(globalIdx) => {
+                  tele.jumpTo(globalIdx);
+                  enterPresent();
+                }}
               />
             )}
           </div>
@@ -1278,9 +1284,16 @@ export default function Lesson() {
       {!presentMode && (
       <div className="relative z-20 px-3 sm:px-4 lg:px-8 pb-3 sm:pb-4">
         <div className="bg-[#0c0a21]/80 backdrop-blur-xl shadow-[0_-10px_30px_rgba(0,0,0,0.5)] border border-white/10 rounded-2xl p-2 flex items-center gap-2 sm:gap-3 overflow-x-auto">
-          {/* Play / pause */}
+          {/* Play / pause — starting playback also takes the lesson fullscreen */}
           <button
-            onClick={isSpeaking ? tele.pause : tele.play}
+            onClick={() => {
+              if (isSpeaking) {
+                tele.pause();
+              } else {
+                tele.play();
+                enterPresent();
+              }
+            }}
             disabled={!tele.supported}
             className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white flex items-center justify-center shadow-lg hover:brightness-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
             title={
