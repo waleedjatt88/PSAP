@@ -7,7 +7,6 @@ const items = [
   { title: "Parts of Speech", subject: "English Language", added: "Last week", emoji: "📚" },
   { title: "Map Reading", subject: "Social Studies", added: "Last week", emoji: "🌍" },
 ];
-
 export default function Bookmarks() {
   return (
     <div className="space-y-6">
