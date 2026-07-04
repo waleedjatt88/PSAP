@@ -1,35 +1,34 @@
-// Shared AI provider logic. Used by both the local Express server
-// (server/index.js) and the Vercel serverless functions (api/*.js).
-// All three supported providers speak the OpenAI Chat Completions wire
-// format — we just swap base URL, key, and default model.
+// Browser port of the old server-side lib/provider.js. All three
+// supported providers speak the OpenAI Chat Completions wire format — we
+// just swap base URL, key, and default model. Calls go straight from the
+// visitor's browser to the provider, using the VITE_-prefixed keys baked
+// into the build (see artifact-design note in .env.example: these are
+// public in a demo, not secret).
 
 export const PROVIDERS = {
   openai: {
     baseUrl: "https://api.openai.com/v1",
-    keyEnv: "OPENAI_API_KEY",
-    modelEnv: "OPENAI_MODEL",
+    keyEnv: "VITE_OPENAI_API_KEY",
+    modelEnv: "VITE_OPENAI_MODEL",
     defaultModel: "gpt-4.1",
     extraHeaders: () => ({}),
     supportsJsonMode: true,
   },
   groq: {
     baseUrl: "https://api.groq.com/openai/v1",
-    keyEnv: "GROQ_API_KEY",
-    modelEnv: "GROQ_MODEL",
+    keyEnv: "VITE_GROQ_API_KEY",
+    modelEnv: "VITE_GROQ_MODEL",
     defaultModel: "llama-3.3-70b-versatile",
     extraHeaders: () => ({}),
     supportsJsonMode: true,
   },
   openrouter: {
     baseUrl: "https://openrouter.ai/api/v1",
-    keyEnv: "OPENROUTER_API_KEY",
-    modelEnv: "OPENROUTER_MODEL",
+    keyEnv: "VITE_OPENROUTER_API_KEY",
+    modelEnv: "VITE_OPENROUTER_MODEL",
     defaultModel: "google/gemma-4-31b-it:free",
     extraHeaders: () => ({
-      "HTTP-Referer":
-        process.env.VERCEL_URL
-          ? `https://${process.env.VERCEL_URL}`
-          : "http://localhost:5173",
+      "HTTP-Referer": typeof window !== "undefined" ? window.location.origin : "http://localhost:5173",
       "X-Title": "PassPoint Demo",
     }),
     supportsJsonMode: false,
@@ -48,27 +47,26 @@ Rules:
 - Keep responses concise (around 120-200 words) unless the student asks for more detail.`;
 
 export function getProviderConfig() {
-  const name = (process.env.AI_PROVIDER || "openai").toLowerCase();
+  const env = import.meta.env;
+  const name = (env.VITE_AI_PROVIDER || "groq").toLowerCase();
   const cfg = PROVIDERS[name];
   if (!cfg) {
-    throw new Error(
-      `Unknown AI_PROVIDER="${name}". Use openai | groq | openrouter.`,
-    );
+    throw new Error(`Unknown VITE_AI_PROVIDER="${name}". Use openai | groq | openrouter.`);
   }
   return {
     name,
     ...cfg,
-    apiKey: process.env[cfg.keyEnv],
-    model: process.env[cfg.modelEnv] || cfg.defaultModel,
+    apiKey: env[cfg.keyEnv],
+    model: env[cfg.modelEnv] || cfg.defaultModel,
   };
 }
 
 export async function callChatCompletion(payload) {
   const cfg = getProviderConfig();
   if (!cfg.apiKey) {
-    const err = new Error(`${cfg.keyEnv} missing on server. Add it to .env and restart.`);
-    err.status = 500;
-    throw err;
+    const e = new Error(`${cfg.keyEnv} missing. Add it to .env and restart the dev server.`);
+    e.status = 500;
+    throw e;
   }
   const r = await fetch(`${cfg.baseUrl}/chat/completions`, {
     method: "POST",
@@ -83,7 +81,7 @@ export async function callChatCompletion(payload) {
 }
 
 // Extract a JSON object from a string that may contain markdown fences,
-// preamble text, or trailing commentary. Used by /api/lesson.
+// preamble text, or trailing commentary.
 export function extractJSON(raw) {
   if (!raw) return null;
   let s = raw.trim();
@@ -99,18 +97,7 @@ export function extractJSON(raw) {
   }
 }
 
-// Kindergarten-mode prompt: shaped for ages 3-7 in the same spirit as
-// "Lumi" in the A-Z build spec. Short sentences, warm voice, no quiz
-// JSON, gentle redirect on scary/off-topic content. We deliberately
-// skip the in_scope JSON envelope here — at this age, conversational
-// flow beats strict topic gating.
-function buildKindergartenPrompt({
-  subject,
-  topic,
-  lessonContent,
-  currentLetter,
-  currentWord,
-}) {
+function buildKindergartenPrompt({ subject, topic, lessonContent, currentLetter, currentWord }) {
   const focusLine =
     currentLetter && currentWord
       ? `RIGHT NOW we are on the letter "${currentLetter}" for "${currentWord}".`
@@ -171,9 +158,6 @@ export function buildSystemPrompt(context = {}) {
     .filter(Boolean)
     .join(" | ");
 
-  // Kindergarten lessons need a totally different teacher voice and
-  // safety stance than JSS/SS prep. Branch early so we don't drag the
-  // strict-JSON tutor rules into a 4-year-old's conversation.
   if (classLevel === "Kindergarten") {
     return buildKindergartenPrompt({
       subject,
@@ -184,12 +168,6 @@ export function buildSystemPrompt(context = {}) {
     });
   }
 
-  // The AI is constrained to use LESSON_CONTENT as its only knowledge
-  // source — but it IS allowed to teach with it: explain, summarize,
-  // give examples, quiz the student, etc. We use structured JSON so the
-  // server can enforce a canonical refusal when a question is truly
-  // off-topic (e.g., asking about photosynthesis during a Fractions
-  // lesson).
   if (lessonContent) {
     return [
       "You are PassPoint AI, a friendly teacher presenting a fixed lesson to a student.",
@@ -201,7 +179,6 @@ export function buildSystemPrompt(context = {}) {
       "LESSON_CONTENT:",
       "<<<",
       lessonContent,
-      
       ">>>",
       "",
       "Respond to every student message as a SINGLE valid JSON object with this exact shape — no markdown, no prose outside JSON:",
@@ -246,9 +223,7 @@ export function buildSystemPrompt(context = {}) {
     ].join("\n");
   }
 
-  return contextLine
-    ? `${SYSTEM_PROMPT}\n\nContext for this conversation -> ${contextLine}`
-    : SYSTEM_PROMPT;
+  return contextLine ? `${SYSTEM_PROMPT}\n\nContext for this conversation -> ${contextLine}` : SYSTEM_PROMPT;
 }
 
 export function buildLessonPrompt({ classLevel, subject, topic }) {

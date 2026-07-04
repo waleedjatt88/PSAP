@@ -3,6 +3,11 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import "./index.css";
 import App from "./App.jsx";
+import { installLocalApi } from "./lib/localBackend/router.js";
+
+// No backend anymore — every /api/* call is served entirely in the
+// browser (auth, AI, media, TTS). Must run before anything calls fetch.
+installLocalApi();
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>

@@ -44,8 +44,10 @@ export default function Login() {
         await signIn({ email, password });
         nav("/dashboard");
       } else {
-        await signUp({ email, password, fullName, classLevel });
-        nav(`/verify-otp?email=${encodeURIComponent(email)}&purpose=signup`);
+        const result = await signUp({ email, password, fullName, classLevel });
+        nav(`/verify-otp?email=${encodeURIComponent(email)}&purpose=signup`, {
+          state: { devOtp: result?.otp },
+        });
       }
     } catch (err) {
       if (err.payload?.needsVerification) {

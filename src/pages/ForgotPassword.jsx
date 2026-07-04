@@ -14,8 +14,10 @@ export default function ForgotPassword() {
     setBusy(true);
     setError(null);
     try {
-      await forgotPassword({ email });
-      nav(`/verify-otp?email=${encodeURIComponent(email)}&purpose=reset`);
+      const result = await forgotPassword({ email });
+      nav(`/verify-otp?email=${encodeURIComponent(email)}&purpose=reset`, {
+        state: { devOtp: result?.otp },
+      });
     } catch (err) {
       setError(err.message || "Something went wrong");
     } finally {

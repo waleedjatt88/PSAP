@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams, Link } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams, Link } from "react-router-dom";
 import AuthLayout from "../components/AuthLayout";
 import OtpInput from "../components/OtpInput";
 import { useUser } from "../store/user";
@@ -10,6 +10,7 @@ const RESEND_COOLDOWN = 30;
 export default function VerifyOtp() {
   const [params] = useSearchParams();
   const nav = useNavigate();
+  const location = useLocation();
   const { applySession } = useUser();
 
   const email = params.get("email") || "";
@@ -18,7 +19,11 @@ export default function VerifyOtp() {
   const [otp, setOtp] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-  const [info, setInfo] = useState(null);
+  // Demo mode: there's no email backend, so the code we'd normally have
+  // mailed out is shown right here instead.
+  const [info, setInfo] = useState(
+    location.state?.devOtp ? `Demo mode — your code is ${location.state.devOtp}` : null,
+  );
   const [cooldown, setCooldown] = useState(RESEND_COOLDOWN);
 
   useEffect(() => {
@@ -57,8 +62,10 @@ export default function VerifyOtp() {
     setError(null);
     setInfo(null);
     try {
-      await resendOtp({ email, purpose });
-      setInfo("A new code has been sent.");
+      const result = await resendOtp({ email, purpose });
+      setInfo(
+        result?.otp ? `Demo mode — your new code is ${result.otp}` : "A new code has been sent.",
+      );
       setCooldown(RESEND_COOLDOWN);
     } catch (err) {
       setError(err.message || "Could not resend code");
