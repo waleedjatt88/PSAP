@@ -5,6 +5,7 @@ import kgNumbers from "./kindergarten-numbers.js";
 import kgObjects from "./kindergarten-objects.js";
 import kgShapes from "./kindergarten-shapes.js";
 import kgScience from "./kindergarten-science.js";
+import kgAiMathOperations from "./kg-ai-math-operations.js";
 
 // Registry of all available lessons. The lesson id is canonical — the
 // curriculum points at one of these.
@@ -16,6 +17,7 @@ export const LESSONS = {
   [kgObjects.id]: kgObjects,
   [kgShapes.id]: kgShapes,
   [kgScience.id]: kgScience,
+  [kgAiMathOperations.id]: kgAiMathOperations,
 };
 
 export function getLesson(id) {

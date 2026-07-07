@@ -29,6 +29,7 @@ import useSpeechRecognition from "../hooks/useSpeechRecognition";
 import { SUBJECTS, findSubject, findTopic, lessonHref } from "../data/curriculum";
 import { getLesson, flattenLesson } from "../data/lessons/index.js";
 import { letterImage, TEACHER_AVATAR } from "../data/lessons/alphabetAssets.js";
+import { numberWord } from "../lib/numberWords.js";
 
 export default function Lesson() {
   const { user } = useUser();
@@ -348,17 +349,27 @@ export default function Lesson() {
 
   // One round of listening for the target word. Resolves true if the
   // child's mic transcript contains any accepted form within the timeout.
-  function listenForWord(targets, timeoutMs = 5000) {
+  //
+  // The mic opens after a short settle delay rather than the instant the
+  // question finishes speaking — without it, the tail end of the
+  // teacher's own voice (still draining out of the speakers when
+  // `onend` fires) can bleed into the very start of the recording and
+  // corrupt the transcript, so even a correctly spoken answer never
+  // matches.
+  function listenForWord(targets, timeoutMs = 6000) {
     return new Promise((resolve) => {
       verifyTargetRef.current = targets;
-      // Make sure the mic is on
-      if (voiceCmd.supported && !voiceCmd.listening) voiceCmd.start();
+      const settle = setTimeout(() => {
+        if (voiceCmd.supported && !voiceCmd.listening) voiceCmd.start();
+      }, 350);
       const timer = setTimeout(() => {
+        clearTimeout(settle);
         verifyTargetRef.current = null;
         verifyResolverRef.current = null;
         resolve(false);
       }, timeoutMs);
       verifyResolverRef.current = (matched) => {
+        clearTimeout(settle);
         clearTimeout(timer);
         verifyTargetRef.current = null;
         verifyResolverRef.current = null;
@@ -409,7 +420,7 @@ export default function Lesson() {
           await speakAndWait(`${prompt} ${targetWord}.`);
           if (verifyGenRef.current !== myGen) return false; // cancelled
         }
-        const heard = await listenForWord(targets, 5000);
+        const heard = await listenForWord(targets, 6000);
         if (verifyGenRef.current !== myGen) return false; // cancelled
         if (heard) {
           const praise = PRAISES[Math.floor(Math.random() * PRAISES.length)];
@@ -445,13 +456,44 @@ export default function Lesson() {
   // "Now a question. What number is this?" → the answer lives in the
   // section the sentence belongs to (word for numbers, name for shapes,
   // letter for the alphabet). Returns null for non-question sentences.
+  //
+  // "Now you try — what is five plus four?" (the AI math teacher's own
+  // quiz line, see kg-ai-math-operations.js) → the accepted answer is
+  // derived from the section's equation-reveal visual itself, so the
+  // lesson data only needs to say the words, not spell out the answer.
   function extractQuestionTarget(text, flatItem) {
-    if (!text || !/what (number|shape|letter|word) is this/i.test(text)) {
-      return null;
-    }
+    if (!text) return null;
     const section = sections.find((s) => s.id === flatItem?.sectionId);
     const v = section?.visual;
-    return v?.word || v?.name || v?.letter || null;
+    if (/what (number|shape|letter|word) is this/i.test(text)) {
+      return v?.word || v?.name || v?.letter || null;
+    }
+    if (v?.type === "equation-reveal" && /now you try/i.test(text)) {
+      return mathQuizTarget(v);
+    }
+    return null;
+  }
+
+  // The spoken word the child should say back for each math quiz type.
+  // Every type except counting/number-recognition quizzes with a fresh
+  // example (`visual.quiz`) rather than repeating the numbers just
+  // taught — asking back the exact equation the teacher only just
+  // answered isn't a real check of understanding.
+  function mathQuizTarget(v) {
+    const q = v.quiz;
+    switch (v.lessonType) {
+      case "equal-to":
+        return "yes";
+      case "greater-than":
+        return numberWord(q ? q.answer : Math.max(v.firstNumber, v.secondNumber));
+      case "less-than":
+        return numberWord(q ? q.answer : Math.min(v.firstNumber, v.secondNumber));
+      case "counting":
+      case "number-recognition":
+        return numberWord(v.firstNumber);
+      default:
+        return numberWord(q ? q.answer : v.answer);
+    }
   }
 
   function escapeRegExp(s) {
@@ -463,6 +505,7 @@ export default function Lesson() {
   const NUMBER_WORD_DIGITS = {
     one: "1", two: "2", three: "3", four: "4", five: "5",
     six: "6", seven: "7", eight: "8", nine: "9", ten: "10",
+    eleven: "11", twelve: "12",
   };
   function acceptedAnswers(word) {
     const lower = word.toLowerCase();
@@ -768,7 +811,7 @@ export default function Lesson() {
   // ─── Left teacher sidebar ──────────────────────────────────────────
   const sidebarContent = (
     <div className="flex flex-col h-full w-full">
-      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-5 pr-1">
+      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide flex flex-col gap-5 pr-1">
         {/* Tagline header */}
         <div className="text-center">
           <div className="text-[10px] uppercase tracking-[0.2em] font-black text-indigo-300 font-display">
@@ -889,7 +932,7 @@ export default function Lesson() {
         LESSON PLAN
       </h3>
 
-      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-1.5 pr-1">
+      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide flex flex-col gap-1.5 pr-1">
         {sections.map((s, i) => {
           const isActive = i === activeSlideIdx;
           const isDone = i < activeSlideIdx;

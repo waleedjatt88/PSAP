@@ -86,6 +86,26 @@ export const SUBJECTS = [
     ],
   },
   {
+    id: "kg-ai-math",
+    name: "Math Lecture",
+    classTier: "kindergarten",
+    emoji: "🧮",
+    image: "ai-math",
+    tint: "from-purple-200 to-indigo-100",
+    accent: "from-purple-500 to-indigo-700",
+    iconTint: "bg-purple-100",
+    progress: 0,
+    voiceGender: "male",
+    presenterName: "AI Teacher",
+    topics: [
+      {
+        title: "Numbers Come Alive",
+        lessonId: "kg-ai-math-operations",
+        description: "Addition, subtraction, multiplication, division and more — animated and narrated live",
+      },
+    ],
+  },
+  {
     id: "kg-science",
     name: "Science",
     classTier: "kindergarten",

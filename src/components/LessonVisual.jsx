@@ -3,6 +3,8 @@
 // one of these renderers. All visuals enter with a soft scale animation
 // and idle-animate (float / pulse) so the slide feels alive.
 
+import { numberWord } from "../lib/numberWords.js";
+
 export default function LessonVisual({ visual, revealStep }) {
   if (!visual) return null;
   return (
@@ -37,9 +39,234 @@ function renderInner(visual, revealStep) {
       return <AcronymVisual word={visual.word} meanings={visual.meanings} highlight={visual.highlight} />;
     case "banner":
       return <BannerVisual icon={visual.icon} label={visual.label} subtitle={visual.subtitle} />;
+    case "equation-reveal":
+      return <EquationRevealVisual visual={visual} revealStep={revealStep} />;
     default:
       return null;
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Equation reveal — a "board" that writes in one token at a time as the AI
+// narrates: first number, then operator + second number, then the answer.
+// `revealStep` comes from the section's `revealAtSentence` mapping, same
+// mechanism the worked-example visual above uses.
+//   0 → nothing written yet   1 → first number   2 → operator + second
+//   3 → answer + explanation
+
+function EquationRevealVisual({ visual, revealStep = 0 }) {
+  const showFirst = revealStep >= 1;
+  const showSecond = revealStep >= 2;
+  const showResult = revealStep >= 3;
+
+  switch (visual.lessonType) {
+    case "counting":
+      return <CountingReveal visual={visual} showFirst={showFirst} showResult={showResult} />;
+    case "number-recognition":
+      return <NumberRecognitionReveal visual={visual} showFirst={showFirst} showResult={showResult} />;
+    case "greater-than":
+    case "less-than":
+    case "equal-to":
+      return (
+        <ComparisonReveal
+          visual={visual}
+          showFirst={showFirst}
+          showSecond={showSecond}
+          showResult={showResult}
+        />
+      );
+    default:
+      return (
+        <EquationReveal
+          visual={visual}
+          showFirst={showFirst}
+          showSecond={showSecond}
+          showResult={showResult}
+          missing={visual.lessonType === "missing-number"}
+        />
+      );
+  }
+}
+
+// Frosted-glass shell shared by every equation-reveal variant: a soft
+// gradient border ring, translucent BLACK over blur, a faint top sheen,
+// and two brand-color glows tucked behind the corners — a dark
+// glassmorphism take so the moody cardbg.png photo behind it (and the
+// dark stage around it) shows through instead of being washed out white.
+function GlassCard({ className = "", children }) {
+  return (
+    <div className="relative w-full rounded-[1.75rem] p-[1.5px] bg-gradient-to-br from-blue-400/30 via-white/15 to-orange-400/30 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.65)] animate-[float_4s_ease-in-out_infinite]">
+      <div
+        className={[
+          "relative w-full overflow-hidden rounded-[calc(1.75rem-1.5px)] bg-black/40 backdrop-blur-2xl",
+          className,
+        ].join(" ")}
+      >
+        <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+        <div className="absolute -top-10 -left-10 w-36 h-36 bg-blue-500/25 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-10 -right-10 w-36 h-36 bg-orange-500/25 rounded-full blur-3xl pointer-events-none" />
+        {/* Shine sweep — a light streak drifts across the glass every few seconds */}
+        <div
+          className="absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-white/25 to-transparent pointer-events-none"
+          style={{ animation: "shine-sweep 6s ease-in-out infinite" }}
+        />
+        <div className="relative z-10">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function EquationReveal({ visual, showFirst, showSecond, showResult, missing }) {
+  const { firstNumber, secondNumber, operator, answer, resultShown } = visual;
+  return (
+    <GlassCard className="px-6 sm:px-10 py-8 sm:py-10">
+      <div className="flex items-center justify-center gap-3 sm:gap-5 flex-wrap">
+        <NumTile show={showFirst}>{firstNumber}</NumTile>
+        <OpTile show={showSecond}>{operator}</OpTile>
+        <NumTile show={showSecond} tone={missing ? "rose" : undefined}>
+          {missing ? (showResult ? answer : "?") : secondNumber}
+        </NumTile>
+        <OpTile show={showSecond}>=</OpTile>
+        <NumTile show={missing ? showSecond : showResult} tone="emerald">
+          {missing ? resultShown : showResult ? answer : ""}
+        </NumTile>
+      </div>
+    </GlassCard>
+  );
+}
+
+function ComparisonReveal({ visual, showFirst, showSecond, showResult }) {
+  const { firstNumber, secondNumber, operator } = visual;
+  return (
+    <GlassCard className="px-8 sm:px-12 py-8 sm:py-10">
+      <div className="flex items-center justify-center gap-4 sm:gap-6">
+        <NumTile show={showFirst}>{firstNumber}</NumTile>
+        <div
+          className={[
+            "w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center rounded-2xl border-2 font-extrabold transition-all duration-300",
+            "text-2xl sm:text-3xl",
+            showResult
+              ? "opacity-100 scale-100 border-orange-400/30 bg-orange-500/15 text-orange-300 shadow-lg shadow-orange-500/30"
+              : "opacity-80 scale-95 border-dashed border-blue-400/30 bg-blue-500/10 text-blue-300/70 animate-pulse",
+          ].join(" ")}
+          style={{ animation: showResult ? "item-pop 0.5s cubic-bezier(0.34,1.56,0.64,1) both" : undefined }}
+        >
+          {showResult ? operator : "?"}
+        </div>
+        <NumTile show={showSecond}>{secondNumber}</NumTile>
+      </div>
+    </GlassCard>
+  );
+}
+
+function CountingReveal({ visual, showFirst, showResult }) {
+  const { firstNumber, icon } = visual;
+  return (
+    <GlassCard className="px-6 sm:px-10 py-8 sm:py-10">
+      <div className="flex flex-col items-center gap-5">
+        <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 max-w-md">
+          {Array.from({ length: firstNumber }).map((_, i) => (
+            <span
+              key={i}
+              className="text-3xl sm:text-4xl"
+              style={{
+                opacity: showFirst ? 1 : 0,
+                animation: showFirst
+                  ? `item-pop 0.45s cubic-bezier(0.34,1.56,0.64,1) ${i * 0.12}s both, gentle-bob 3s ease-in-out ${i * 0.15}s infinite`
+                  : undefined,
+              }}
+            >
+              {icon || "⭐"}
+            </span>
+          ))}
+        </div>
+        <div
+          className="text-6xl sm:text-7xl font-extrabold text-blue-300 tabular-nums transition-opacity duration-300"
+          style={{
+            fontFamily: "Fredoka, 'Baloo 2', system-ui, sans-serif",
+            opacity: showResult ? 1 : 0,
+            animation: showResult ? "item-pop 0.5s cubic-bezier(0.34,1.56,0.64,1) both" : undefined,
+          }}
+        >
+          {firstNumber}
+        </div>
+      </div>
+    </GlassCard>
+  );
+}
+
+function NumberRecognitionReveal({ visual, showFirst, showResult }) {
+  const { firstNumber } = visual;
+  return (
+    <GlassCard className="px-6 sm:px-10 py-10 sm:py-12">
+      <div className="flex flex-col items-center gap-4">
+        <div
+          className="text-8xl sm:text-9xl font-extrabold text-blue-300 tabular-nums transition-opacity duration-300"
+          style={{
+            fontFamily: "Fredoka, 'Baloo 2', system-ui, sans-serif",
+            opacity: showFirst ? 1 : 0,
+            animation: showFirst ? "item-pop 0.5s cubic-bezier(0.34,1.56,0.64,1) both" : undefined,
+          }}
+        >
+          {firstNumber}
+        </div>
+        <div
+          className="text-xl sm:text-2xl font-bold text-gray-300 uppercase tracking-widest transition-opacity duration-300"
+          style={{
+            opacity: showResult ? 1 : 0,
+            animation: showResult ? "step-in 0.4s ease-out both" : undefined,
+          }}
+        >
+          {numberWord(firstNumber)}
+        </div>
+      </div>
+    </GlassCard>
+  );
+}
+
+// One number/answer tile — a soft rounded chip that pops in with a
+// colored border, tint, and glow (rather than a bare floating digit).
+function NumTile({ show, tone, children }) {
+  const TONES = {
+    emerald: "border-emerald-400/30 bg-emerald-500/15 text-emerald-300 shadow-emerald-500/30",
+    rose: "border-rose-400/30 bg-rose-500/15 text-rose-300 shadow-rose-500/30",
+    default: "border-blue-400/30 bg-blue-500/15 text-blue-300 shadow-blue-500/30",
+  };
+  const tones = TONES[tone] || TONES.default;
+  return (
+    <div
+      className={[
+        "min-w-[3.5rem] sm:min-w-[4.5rem] lg:min-w-[5.5rem] flex items-center justify-center rounded-2xl border-2 px-3 sm:px-4 py-2 sm:py-3 font-extrabold tabular-nums transition-all duration-300",
+        "text-4xl sm:text-5xl lg:text-6xl",
+        show ? `opacity-100 scale-100 shadow-lg ${tones}` : "opacity-0 scale-90",
+      ].join(" ")}
+      style={{
+        fontFamily: "Fredoka, 'Baloo 2', system-ui, sans-serif",
+        animation: show ? "item-pop 0.5s cubic-bezier(0.34,1.56,0.64,1) both" : undefined,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// One operator tile (+, −, ×, ÷, =) — a circular badge, highlighted in
+// orange per spec, matching the NumTile chip language.
+function OpTile({ show, children }) {
+  return (
+    <div
+      className={[
+        "w-11 h-11 sm:w-14 sm:h-14 flex items-center justify-center rounded-full border-2 font-extrabold transition-all duration-300",
+        "text-2xl sm:text-3xl",
+        show
+          ? "opacity-100 scale-100 border-orange-400/30 bg-orange-500/15 text-orange-300 shadow-lg shadow-orange-500/30"
+          : "opacity-0 scale-90",
+      ].join(" ")}
+      style={{ animation: show ? "item-pop 0.5s cubic-bezier(0.34,1.56,0.64,1) both" : undefined }}
+    >
+      {children}
+    </div>
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────
