@@ -1,8 +1,7 @@
 import LessonVisual from "./LessonVisual";
 import { ArrowLeftIcon, ArrowRightIcon } from "./icons.jsx";
-import useChromaKey from "../hooks/useChromaKey.js";
-import { TEACHER_POINTED } from "../data/lessons/alphabetAssets.js";
-import mathCardBg from "../assets/images/cardbg.png";
+import MathLectureSlide from "./MathLectureSlide.jsx";
+import { computeRevealStep } from "../lib/revealStep.js";
 
 // Full-screen presentation slide for JSS lessons (Maths, Basic Science, …).
 // Same energy as the Kindergarten slide — colourful gradient backdrop,
@@ -27,25 +26,7 @@ const VISUAL_WEIGHT = {
   "icon-grid": "large",
   acronym: "large",
   "worked-example": "large",
-  "equation-reveal": "medium",
 };
-
-// For worked-example visuals, figure out how many steps should be
-// visible based on the AI's current sentence.
-function computeRevealStep(section, sectionStartIdx, currentIdx) {
-  if (!["worked-example", "equation-reveal"].includes(section.visual?.type)) return 0;
-  const localIdx =
-    currentIdx >= sectionStartIdx ? currentIdx - sectionStartIdx : -1;
-  if (localIdx < 0) return 0;
-  const stepsCount = section.visual.steps?.length || 0;
-  const mapping = section.visual.revealAtSentence;
-  if (Array.isArray(mapping) && mapping.length > 0) {
-    if (localIdx >= mapping.length) return stepsCount + 1;
-    return mapping[localIdx];
-  }
-  const total = section.sentences?.length || 1;
-  return Math.min(stepsCount, Math.floor(((localIdx + 1) / total) * stepsCount));
-}
 
 export default function LessonSlide({
   section,
@@ -65,10 +46,31 @@ export default function LessonSlide({
   // eslint-disable-next-line no-unused-vars
   tint = "from-blue-50 via-white to-orange-50", // legacy subject-driven gradient (dark skin no longer uses it)
 }) {
-  const isEquationBoard = section?.visual?.type === "equation-reveal";
-  const avatar = useChromaKey(TEACHER_POINTED, isEquationBoard);
-
   if (!section) return null;
+
+  // Every slide of the AI Math Teacher's "Math Lecture" lesson gets an
+  // entirely bespoke layout (see MathLectureSlide) — including its
+  // "Welcome" intro section, so the design is consistent start to finish.
+  // Everything below this is unchanged for every other lesson (Fractions,
+  // Living Things, …).
+  if (subject === "Math Lecture") {
+    return (
+      <MathLectureSlide
+        section={section}
+        sectionStartIdx={sectionStartIdx}
+        currentIdx={currentIdx}
+        slideNumber={slideNumber}
+        totalSlides={totalSlides}
+        subject={subject}
+        topic={topic}
+        onSentenceClick={onSentenceClick}
+        onPrevSlide={onPrevSlide}
+        onNextSlide={onNextSlide}
+        canPrev={canPrev}
+        canNext={canNext}
+      />
+    );
+  }
 
   const hasVisual = Boolean(section.visual);
   const weight = hasVisual
@@ -165,35 +167,7 @@ export default function LessonSlide({
 
         {/* Topic-specific visual — bigger, animated, dominant */}
         {hasVisual && (
-          <div
-            className={[
-              "relative flex items-center justify-center backdrop-blur rounded-2xl shadow-2xl border p-4 sm:p-6 lg:p-8",
-              isEquationBoard ? "bg-cover bg-center border-white/10 ml-10 sm:ml-16 lg:ml-20" : "bg-white/90 border-white/20",
-            ].join(" ")}
-            style={
-              isEquationBoard
-                ? {
-                    backgroundImage: `linear-gradient(rgba(8,6,20,0.55), rgba(8,6,20,0.7)), url(${mathCardBg})`,
-                  }
-                : undefined
-            }
-          >
-            {/* AI Teacher — stands right beside the board, pointing at it
-                with the hand nearer to the card (image mirrored so the
-                raised hand faces inward). A blurred contact shadow grounds
-                her feet. */}
-            {isEquationBoard && (
-              <>
-                <div className="pointer-events-none absolute -left-6 sm:-left-9 lg:-left-11 bottom-2 w-16 sm:w-24 lg:w-28 h-3 sm:h-4 bg-black/60 blur-md rounded-full z-[9]" />
-                <img
-                  src={avatar}
-                  alt="AI Teacher"
-                  draggable={false}
-                  className="pointer-events-none select-none absolute -left-10 sm:-left-16 lg:-left-20 bottom-0 h-28 sm:h-40 lg:h-48 w-auto object-contain object-bottom drop-shadow-[0_15px_30px_rgba(0,0,0,0.5)] z-10"
-                  style={{ transform: "scaleX(-1)" }}
-                />
-              </>
-            )}
+          <div className="relative flex items-center justify-center backdrop-blur rounded-2xl shadow-2xl border bg-white/90 border-white/20 p-4 sm:p-6 lg:p-8">
             <div className="w-full max-w-lg">
               <LessonVisual
                 visual={section.visual}
