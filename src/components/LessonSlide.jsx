@@ -41,7 +41,6 @@ export default function LessonSlide({
   onNextSlide,
   canPrev = false,
   canNext = false,
-  // eslint-disable-next-line no-unused-vars
   speaking = false,
   presentMode = false,
   // eslint-disable-next-line no-unused-vars
@@ -69,6 +68,7 @@ export default function LessonSlide({
         onNextSlide={onNextSlide}
         canPrev={canPrev}
         canNext={canNext}
+        speaking={speaking}
         presentMode={presentMode}
       />
     );
@@ -236,3 +236,5 @@ function BgBubbles() {
     </div>
   );
 }
+
+

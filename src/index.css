@@ -84,6 +84,11 @@ body,
   50%      { transform: scaleX(-1) translateY(-6px) rotate(1.2deg); }
 }
 
+@keyframes math-teacher-gif-idle {
+  0%, 100% { transform: translateY(0) rotate(-0.8deg); }
+  50%      { transform: translateY(-7px) rotate(0.8deg); }
+}
+
 /* Center-anchored soundwave bars for the lesson caption bar */
 @keyframes sound-wave {
   0%, 100% { transform: scaleY(0.35); }
@@ -165,3 +170,4 @@ body,
   60%  { opacity: 0; }
   100% { transform: translateX(220%) skewX(-20deg); opacity: 0; }
 }
+

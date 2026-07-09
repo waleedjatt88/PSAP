@@ -1,5 +1,6 @@
 import { forwardRef, useLayoutEffect, useRef, useState } from "react";
 import boardImg from "../assets/images/borad.png";
+import teacherGif from "../assets/images/teacher.gif";
 import MarkerPen from "./MarkerPen.jsx";
 import { ArrowLeftIcon, ArrowRightIcon } from "./icons.jsx";
 import { computeRevealStep } from "../lib/revealStep.js";
@@ -207,6 +208,38 @@ function TrackingPen({ wrapRef, activeRef, dep }) {
 // not the one just taught) and keeps the final answer permanently hidden
 // behind a "?" — this is the "now you try" question written on the
 // board itself, answered out loud rather than shown.
+function TeacherVideo({ speaking = false, playKey, presentMode = false }) {
+  return (
+    <div
+      className="absolute z-10 pointer-events-none select-none transition-all duration-500 ease-out"
+      style={{
+        left: "50%",
+        bottom: presentMode ? "1.25%" : "1.75%",
+        width: "clamp(190px, 22vw, 320px)",
+        height: "min(74%, 550px)",
+        transform: presentMode ? "translateX(-50%) scale(1.14)" : "translateX(-50%) scale(1.06)",
+        transformOrigin: "bottom center",
+      }}
+      aria-hidden="true"
+    >
+      <div
+        className={[
+          "relative h-full w-full origin-bottom",
+          speaking ? "animate-[math-teacher-gif-idle_3s_ease-in-out_infinite]" : "animate-[math-teacher-gif-idle_5s_ease-in-out_infinite]",
+        ].join(" ")}
+      >
+        <div className="absolute left-1/2 bottom-0 h-[15%] w-[68%] -translate-x-1/2 rounded-full bg-black/40 blur-2xl" />
+        <img
+          key={playKey}
+          src={teacherGif}
+          alt=""
+          className="relative z-10 h-full w-full object-contain object-bottom drop-shadow-[0_22px_34px_rgba(0,0,0,0.52)]"
+          draggable={false}
+        />
+      </div>
+    </div>
+  );
+}
 function EquationTokens({ visual, revealStep, quiz = false }) {
   const data = quiz ? { ...visual, ...visual.quiz } : visual;
   const showFirst = quiz ? true : revealStep >= 1;
@@ -290,6 +323,7 @@ export default function MathLectureSlide({
   canPrev = false,
   canNext = false,
   presentMode = false,
+  speaking = false,
 }) {
   const revealStep = computeRevealStep(section, sectionStartIdx, currentIdx);
   const visual = section.visual;
@@ -381,6 +415,12 @@ export default function MathLectureSlide({
             {isEquation && <EquationTokens visual={visual} revealStep={revealStep} quiz={isQuizActive} />}
           </div>
 
+          <TeacherVideo
+            speaking={speaking}
+            playKey={`${currentIdx}-${revealStep}-${isQuizActive}`}
+            presentMode={presentMode}
+          />
+
           <div
             className="absolute bg-white text-slate-900 rounded-2xl rounded-tr-sm px-3 py-2 shadow-xl text-[9px] sm:text-xs font-bold"
             style={{ top: "4%", right: "2%", maxWidth: "28%" }}
@@ -452,3 +492,12 @@ export default function MathLectureSlide({
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
