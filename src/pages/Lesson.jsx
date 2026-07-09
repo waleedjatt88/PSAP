@@ -1269,6 +1269,7 @@ export default function Lesson() {
                 topic={topic.title}
                 tint={subject.tint}
                 speaking={isSpeaking}
+                presentMode={presentMode}
                 onPrevSlide={() => goToSlide(activeSlideIdx - 1)}
                 onNextSlide={() => goToSlide(activeSlideIdx + 1)}
                 canPrev={activeSlideIdx > 0}
@@ -1313,7 +1314,10 @@ export default function Lesson() {
       </div>
 
       {/* Verify mini-game prompt — only shows when the child is asked to
-          repeat a word (kept off the speech bubble at top-center). */}
+          repeat a word (kept off the speech bubble at top-center). Used
+          to be skipped for Math Lecture because it collided with that
+          slide's old click-based "Pick the answer" buttons — those are
+          gone now, so it's safe to show here too. */}
       {isKindergarten && voiceCmd.supported && verifyTarget && (
         <div className="absolute bottom-[9.5rem] sm:bottom-44 left-1/2 -translate-x-1/2 z-30 pointer-events-none max-w-[92vw]">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider shadow-lg backdrop-blur border bg-amber-400/95 text-ink-900 border-amber-300/50">
@@ -1326,7 +1330,7 @@ export default function Lesson() {
       {/* Floating control bar — hidden in present mode */}
       {!presentMode && (
       <div className="relative z-20 px-3 sm:px-4 lg:px-8 pb-3 sm:pb-4">
-        <div className="bg-[#0c0a21]/80 backdrop-blur-xl shadow-[0_-10px_30px_rgba(0,0,0,0.5)] border border-white/10 rounded-2xl p-2 flex items-center gap-2 sm:gap-3 overflow-x-auto">
+        <div className="bg-[#0c0a21]/80 backdrop-blur-xl shadow-[0_-10px_30px_rgba(0,0,0,0.5)] border border-white/10 rounded-2xl p-2 flex items-center gap-2 sm:gap-3 overflow-x-auto scrollbar-hide">
           {/* Play / pause — starting playback also takes the lesson fullscreen */}
           <button
             onClick={() => {
@@ -1450,7 +1454,7 @@ export default function Lesson() {
           slide counter (all already rendered inside the stage itself).
           Auto-dim, hover to focus. */}
       {presentMode && (
-        <div className="absolute bottom-4 left-4 z-40 flex items-center gap-1.5 bg-black/50 backdrop-blur-xl border border-white/10 rounded-full px-2 py-2 shadow-2xl opacity-60 hover:opacity-100 transition-opacity">
+        <div className="absolute bottom-4 left-4 z-50 flex items-center gap-1.5 bg-black/50 backdrop-blur-xl border border-white/10 rounded-full px-2 py-2 shadow-2xl opacity-60 hover:opacity-100 transition-opacity">
           <button
             onClick={isSpeaking ? tele.pause : tele.play}
             disabled={!tele.supported}
@@ -1487,7 +1491,7 @@ export default function Lesson() {
       )}
 
       {presentMode && (
-        <div className="absolute bottom-4 right-4 z-40 flex items-center gap-1.5 bg-black/50 backdrop-blur-xl border border-white/10 rounded-full px-2 py-2 shadow-2xl opacity-60 hover:opacity-100 transition-opacity">
+        <div className="absolute bottom-4 right-4 z-50 flex items-center gap-1.5 bg-black/50 backdrop-blur-xl border border-white/10 rounded-full px-2 py-2 shadow-2xl opacity-60 hover:opacity-100 transition-opacity">
           <button
             onClick={exitPresent}
             className="flex items-center gap-1.5 text-xs font-bold text-gray-200 hover:text-white bg-white/10 hover:bg-white/20 rounded-full px-3 py-2 transition shrink-0"

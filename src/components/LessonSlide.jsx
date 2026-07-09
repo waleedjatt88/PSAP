@@ -43,6 +43,7 @@ export default function LessonSlide({
   canNext = false,
   // eslint-disable-next-line no-unused-vars
   speaking = false,
+  presentMode = false,
   // eslint-disable-next-line no-unused-vars
   tint = "from-blue-50 via-white to-orange-50", // legacy subject-driven gradient (dark skin no longer uses it)
 }) {
@@ -68,6 +69,7 @@ export default function LessonSlide({
         onNextSlide={onNextSlide}
         canPrev={canPrev}
         canNext={canNext}
+        presentMode={presentMode}
       />
     );
   }

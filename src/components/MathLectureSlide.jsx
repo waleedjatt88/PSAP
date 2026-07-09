@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
-import lectureImg from "../assets/images/lecturte.png";
+import { forwardRef, useLayoutEffect, useRef, useState } from "react";
+import boardImg from "../assets/images/borad.png";
+import MarkerPen from "./MarkerPen.jsx";
+import { ArrowLeftIcon, ArrowRightIcon } from "./icons.jsx";
 import { computeRevealStep } from "../lib/revealStep.js";
 import { numberWord } from "../lib/numberWords.js";
 
@@ -31,29 +33,33 @@ function speechPrompt(visual, heading) {
   return "Let's learn math together!";
 }
 
+// Muted tint pills — the same "bg-X-500/15 text-X-300" language the rest
+// of the app uses for accent chips (see Dashboard's stat icons), instead
+// of the solid saturated candy colors used in the original mockup.
 const KEYWORD_TONES = [
   ["missing number", "amber"],
   ["greater than", "orange"],
   ["less than", "cyan"],
-  ["equal to", "sky"],
+  ["equal to", "indigo"],
   ["addition", "emerald"],
   ["subtraction", "sky"],
   ["multiplication", "violet"],
   ["division", "rose"],
-  ["counting", "pink"],
-  ["recognize", "pink"],
-  ["true", "sky"],
+  ["counting", "purple"],
+  ["recognize", "purple"],
+  ["true", "indigo"],
 ];
 
 const PILL_CLASS = {
-  amber: "bg-amber-400 text-slate-900",
-  orange: "bg-orange-400 text-slate-900",
-  cyan: "bg-cyan-400 text-slate-900",
-  emerald: "bg-emerald-400 text-slate-900",
-  sky: "bg-sky-400 text-white",
-  violet: "bg-violet-400 text-white",
-  rose: "bg-rose-400 text-white",
-  pink: "bg-pink-400 text-slate-900",
+  amber: "bg-amber-500/15 text-amber-300",
+  orange: "bg-orange-500/15 text-orange-300",
+  cyan: "bg-cyan-500/15 text-cyan-300",
+  emerald: "bg-emerald-500/15 text-emerald-300",
+  sky: "bg-sky-500/15 text-sky-300",
+  violet: "bg-violet-500/15 text-violet-300",
+  rose: "bg-rose-500/15 text-rose-300",
+  purple: "bg-purple-500/15 text-purple-300",
+  indigo: "bg-indigo-500/15 text-indigo-300",
 };
 
 function escapeRegExp(s) {
@@ -84,153 +90,188 @@ function highlightKeywords(text) {
 }
 
 // A plain bold number/operator — no chip background, matching the
-// reference design where only the unknown "blank" gets a badge.
-function Plain({ children, tone = "white", show = true }) {
+// reference design where only the unknown "blank" gets a badge. Dark
+// tones because these now sit directly on the (light) whiteboard image
+// instead of the dark glass card.
+//
+// Revealed via a left-to-right clip-path wipe rather than a fade — that's
+// what makes it read as the marker actually writing the glyph in, instead
+// of the number just materializing. Forwards its ref so EquationTokens
+// can measure exactly where the marker tip needs to be.
+const Plain = forwardRef(function Plain({ children, tone = "dark", show = true }, ref) {
   const tones = {
-    white: "text-white",
-    op: "text-fuchsia-300",
+    dark: "text-slate-900",
+    op: "text-purple-600",
   };
   return (
     <span
-      className={[
-        "font-extrabold tabular-nums transition-opacity duration-300",
-        tones[tone] || tones.white,
-        show ? "opacity-100" : "opacity-0",
-      ].join(" ")}
+      ref={ref}
+      className={["font-extrabold tabular-nums inline-block", tones[tone] || tones.dark].join(" ")}
+      style={{
+        clipPath: show ? "inset(0 0% 0 0)" : "inset(0 100% 0 0)",
+        transition: "clip-path 420ms ease-out",
+      }}
     >
       {children}
     </span>
   );
-}
+});
 
 // The dashed-circle "?" badge — the one thing in the equation that isn't
-// plain text, since it's the unknown the student is solving for.
-function Blank({ children, show, solved }) {
+// plain text, since it's the unknown the student is solving for. Sized to
+// fit within the whiteboard region of the classroom photo.
+const Blank = forwardRef(function Blank({ children, show, solved }, ref) {
   return (
     <span
+      ref={ref}
       className={[
-        "inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 xl:w-[4.5rem] xl:h-[4.5rem] rounded-2xl border-2 border-dashed font-extrabold tabular-nums text-2xl sm:text-3xl lg:text-3xl xl:text-4xl transition-all duration-300",
-        solved ? "border-emerald-400 bg-emerald-500/20 text-emerald-300" : "border-sky-400 bg-sky-500/20 text-sky-300",
+        "inline-flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 xl:w-11 xl:h-11 rounded-lg sm:rounded-xl border-2 border-dashed font-extrabold tabular-nums text-sm sm:text-base lg:text-lg xl:text-xl transition-all duration-300",
+        solved ? "border-emerald-500 bg-emerald-500/15 text-emerald-700" : "border-sky-500 bg-sky-500/15 text-sky-700",
         show ? "opacity-100 scale-100" : "opacity-0 scale-75",
       ].join(" ")}
     >
       {children}
     </span>
   );
+});
+
+// Marker size on the board — a fixed pixel box so the measured-position
+// math below (which anchors the nib, not the box) stays simple.
+const PEN_W = 46;
+const PEN_H = PEN_W / 3.5; // matches MarkerPen's 140:40 viewBox
+
+// A small pen icon that tracks whichever token just got written, measured
+// via getBoundingClientRect rather than guessed — so it lines up exactly
+// regardless of how long the numbers are or what size they render at.
+// `activeRef` is whichever of the three token refs is currently "live";
+// `wrapRef` is the common ancestor both are measured against.
+//
+// Re-measures on more than just `dep` changing: the "Permanent Marker"
+// webfont loads asynchronously, and its glyphs are a different size than
+// the fallback font the browser paints first — if we only measured once
+// per reveal step, the pen would lock onto the pre-swap position and end
+// up floating next to (not on) the number once the real font landed. A
+// ResizeObserver on the row catches that reflow (and any other layout
+// change) and re-syncs the pen to it automatically.
+function TrackingPen({ wrapRef, activeRef, dep }) {
+  const [pos, setPos] = useState(null);
+
+  useLayoutEffect(() => {
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+
+    const measure = () => {
+      const el = activeRef?.current;
+      if (!el) {
+        setPos(null);
+        return;
+      }
+      const wrapRect = wrap.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      setPos({
+        x: elRect.right - wrapRect.left + 2,
+        y: elRect.top - wrapRect.top + elRect.height * 0.55,
+      });
+    };
+
+    measure();
+    document.fonts?.ready?.then(measure);
+    const ro = new ResizeObserver(measure);
+    ro.observe(wrap);
+    return () => ro.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dep]);
+
+  if (!pos) return null;
+  return (
+    <MarkerPen
+      className="absolute pointer-events-none select-none drop-shadow-md"
+      style={{
+        left: pos.x,
+        top: pos.y - PEN_H / 2,
+        width: PEN_W,
+        height: PEN_H,
+        transformOrigin: "0% 50%",
+        transform: "rotate(-35deg)",
+        transition: "left 380ms ease-out, top 380ms ease-out",
+      }}
+    />
+  );
 }
 
 // Builds the equation row for every equation-reveal lesson type. Big
-// plain numbers/operators, with only the unknown getting a badge.
-function EquationTokens({ visual, revealStep }) {
-  const showFirst = revealStep >= 1;
-  const showSecond = revealStep >= 2;
-  const showResult = revealStep >= 3;
-  const { lessonType, firstNumber, secondNumber, operator, answer, resultShown } = visual;
+// plain numbers/operators, with only the unknown getting a badge, plus a
+// marker that visually writes each one in as it's revealed.
+//
+// `quiz` swaps in the section's `visual.quiz` numbers (a fresh example,
+// not the one just taught) and keeps the final answer permanently hidden
+// behind a "?" — this is the "now you try" question written on the
+// board itself, answered out loud rather than shown.
+function EquationTokens({ visual, revealStep, quiz = false }) {
+  const data = quiz ? { ...visual, ...visual.quiz } : visual;
+  const showFirst = quiz ? true : revealStep >= 1;
+  const showSecond = quiz ? true : revealStep >= 2;
+  const showResult = quiz ? false : revealStep >= 3;
+  const { lessonType, firstNumber, secondNumber, operator, answer, resultShown } = data;
   const missing = lessonType === "missing-number";
 
-  const rowStyle = { fontFamily: "Fredoka, 'Baloo 2', system-ui, sans-serif" };
-  const rowClass = "flex items-center justify-center gap-3 sm:gap-4 lg:gap-5 flex-wrap text-4xl sm:text-5xl lg:text-5xl xl:text-6xl";
+  const wrapRef = useRef(null);
+  const firstRef = useRef(null);
+  const secondRef = useRef(null);
+  const resultRef = useRef(null);
+  const activeRef = showResult ? resultRef : showSecond ? secondRef : showFirst ? firstRef : null;
 
+  const rowStyle = { fontFamily: "'Permanent Marker', cursive" };
+  const rowClass = "flex items-center justify-center gap-1.5 sm:gap-2 lg:gap-3 flex-wrap text-base sm:text-xl lg:text-2xl xl:text-3xl";
+
+  let row;
   if (lessonType === "counting" || lessonType === "number-recognition") {
-    return (
+    row = (
       <div className={rowClass} style={rowStyle}>
-        <Plain show={showFirst}>{firstNumber}</Plain>
-        <Plain tone="op" show={showResult}>
+        <Plain ref={firstRef} show={showFirst}>{firstNumber}</Plain>
+        <Plain ref={resultRef} tone="op" show={showResult}>
           = {numberWord(firstNumber)}
         </Plain>
       </div>
     );
-  }
-
-  if (["greater-than", "less-than", "equal-to"].includes(lessonType)) {
-    return (
+  } else if (["greater-than", "less-than", "equal-to"].includes(lessonType)) {
+    row = (
       <div className={rowClass} style={rowStyle}>
-        <Plain show={showFirst}>{firstNumber}</Plain>
-        <Blank show={showSecond} solved={showResult}>
+        <Plain ref={firstRef} show={showFirst}>{firstNumber}</Plain>
+        <Blank ref={secondRef} show={showSecond} solved={showResult}>
           {showResult ? operator : "?"}
         </Blank>
-        <Plain show={showSecond}>{secondNumber}</Plain>
+        <Plain ref={resultRef} show={showSecond}>{secondNumber}</Plain>
+      </div>
+    );
+  } else {
+    row = (
+      <div className={rowClass} style={rowStyle}>
+        <Plain ref={firstRef} show={showFirst}>{firstNumber}</Plain>
+        <Plain ref={secondRef} tone="op" show={showSecond}>{operator}</Plain>
+        {missing ? (
+          <Blank show={showSecond} solved={showResult}>
+            {showResult ? answer : "?"}
+          </Blank>
+        ) : (
+          <Plain show={showSecond}>{secondNumber}</Plain>
+        )}
+        <Plain tone="op" show={showSecond}>=</Plain>
+        {missing ? (
+          <Plain ref={resultRef} show={showSecond}>{resultShown}</Plain>
+        ) : (
+          <Blank ref={resultRef} show={showSecond} solved={showResult}>
+            {showResult ? answer : "?"}
+          </Blank>
+        )}
       </div>
     );
   }
 
   return (
-    <div className={rowClass} style={rowStyle}>
-      <Plain show={showFirst}>{firstNumber}</Plain>
-      <Plain tone="op" show={showSecond}>{operator}</Plain>
-      {missing ? (
-        <Blank show={showSecond} solved={showResult}>
-          {showResult ? answer : "?"}
-        </Blank>
-      ) : (
-        <Plain show={showSecond}>{secondNumber}</Plain>
-      )}
-      <Plain tone="op" show={showSecond}>=</Plain>
-      <Plain show={missing ? showSecond : showResult}>
-        {missing ? resultShown : showResult ? answer : ""}
-      </Plain>
-    </div>
-  );
-}
-
-const OPTION_COLORS = [
-  "bg-emerald-500 hover:bg-emerald-400",
-  "bg-amber-500 hover:bg-amber-400",
-  "bg-sky-500 hover:bg-sky-400",
-  "bg-pink-500 hover:bg-pink-400",
-];
-
-// Four clickable multiple-choice numbers — a visual, click-based
-// alternative to the voice "now you try" quiz, for the lesson types whose
-// answer is a plain number.
-function AnswerOptions({ correctAnswer, sectionId }) {
-  const options = useMemo(() => {
-    const distractors = new Set();
-    let delta = 1;
-    while (distractors.size < 3) {
-      const a = correctAnswer - delta;
-      const b = correctAnswer + delta;
-      if (a > 0 && a !== correctAnswer) distractors.add(a);
-      if (distractors.size < 3 && b !== correctAnswer) distractors.add(b);
-      delta += 1;
-    }
-    const all = [correctAnswer, ...distractors];
-    for (let i = all.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [all[i], all[j]] = [all[j], all[i]];
-    }
-    return all;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sectionId, correctAnswer]);
-
-  const [picked, setPicked] = useState(null);
-
-  useEffect(() => setPicked(null), [sectionId]);
-
-  return (
-    <div className="flex items-center gap-2.5 sm:gap-3 lg:gap-5 flex-wrap justify-center">
-      {options.map((opt, i) => {
-        const isPicked = picked === opt;
-        const isCorrect = opt === correctAnswer;
-        const showState = picked !== null && isPicked;
-        return (
-          <button
-            key={opt}
-            onClick={() => setPicked(opt)}
-            className={[
-              "relative w-16 h-16 sm:w-[4.5rem] sm:h-[4.5rem] lg:w-20 lg:h-20 xl:w-[5.5rem] xl:h-[5.5rem] rounded-2xl text-white font-extrabold text-2xl sm:text-3xl lg:text-3xl xl:text-4xl shadow-[0_6px_0_rgba(0,0,0,0.25),0_10px_18px_rgba(0,0,0,0.35)] transition-all active:scale-95 active:shadow-[0_2px_0_rgba(0,0,0,0.25)] overflow-hidden",
-              showState
-                ? isCorrect
-                  ? "bg-emerald-500 ring-4 ring-emerald-300/60"
-                  : "bg-rose-500 ring-4 ring-rose-300/60 animate-[bounce-soft_0.4s_ease-in-out]"
-                : OPTION_COLORS[i % OPTION_COLORS.length],
-            ].join(" ")}
-          >
-            <span className="absolute inset-x-1 top-1 h-1/3 rounded-full bg-white/25 pointer-events-none" />
-            <span className="relative">{opt}</span>
-          </button>
-        );
-      })}
+    <div key={quiz ? "quiz" : "main"} ref={wrapRef} className="relative">
+      {row}
+      <TrackingPen wrapRef={wrapRef} activeRef={activeRef} dep={`${revealStep}-${firstNumber}-${secondNumber}-${answer}`} />
     </div>
   );
 }
@@ -248,15 +289,25 @@ export default function MathLectureSlide({
   onNextSlide,
   canPrev = false,
   canNext = false,
+  presentMode = false,
 }) {
   const revealStep = computeRevealStep(section, sectionStartIdx, currentIdx);
   const visual = section.visual;
   const isEquation = visual?.type === "equation-reveal";
-  const numericAnswerTypes = ["addition", "subtraction", "multiplication", "division", "missing-number"];
-  const showOptions = isEquation && revealStep >= 2 && numericAnswerTypes.includes(visual?.lessonType);
-  const correctAnswer = visual?.lessonType === "missing-number" ? visual.answer : visual?.answer;
 
-  const [firstWord, ...restWords] = section.heading.split(" ");
+  // The lesson's last sentence is always its "now you try" quiz question
+  // (see kg-ai-math-operations.js) — while it's the one being narrated,
+  // the board swaps from the just-taught example to that fresh quiz
+  // question instead, written on the board the same way the lesson was.
+  const lastSentenceIdx = section.sentences.length - 1;
+  const localIdx = currentIdx - sectionStartIdx;
+  const isQuizActive =
+    isEquation &&
+    Boolean(visual.quiz) &&
+    localIdx === lastSentenceIdx &&
+    /now you try/i.test(section.sentences[lastSentenceIdx] || "");
+
+  const [firstWord, ...restWords] = (isQuizActive ? "Your Turn" : section.heading).split(" ");
 
   return (
     <div className="relative rounded-[28px] shadow-[0_20px_50px_rgba(0,0,0,0.6)] overflow-hidden flex flex-col h-full slide-enter bg-[#0e0c24] border border-purple-500/15">
@@ -277,39 +328,81 @@ export default function MathLectureSlide({
         </div>
       </div>
 
-      {/* Body — definition/equation column + illustrated scene */}
-      <div className="relative z-10 flex-1 min-h-0 grid gap-5 sm:gap-6 lg:gap-8 px-5 sm:px-8 lg:px-12 py-4 sm:py-6 overflow-y-auto scrollbar-hide md:grid-cols-2">
-        {/* Left column — centered, matching the reference design. Sizes
-            step up again at lg/xl so this column fills as much vertical
-            space as the image column does on large screens/F11, instead
-            of looking small and centered with empty space around it. */}
-        <div className="min-w-0 flex flex-col items-center text-center justify-center gap-3.5 lg:gap-5 xl:gap-6">
-          <div className="inline-flex items-center gap-2">
-            <span className="text-amber-300 text-sm lg:text-base">✦</span>
-            <span className="text-[10px] sm:text-[11px] lg:text-xs xl:text-sm font-black tracking-[0.2em] text-indigo-200 uppercase">
-              Today's Topic
-            </span>
-            <span className="text-amber-300 text-sm lg:text-base">✦</span>
+      {/* Body — hero classroom photo (heading + equation live on its
+          whiteboard) followed by the read-along card, quiz, and nav. */}
+      <div className="relative z-10 flex-1 min-h-0 flex flex-col items-stretch">
+        {/* Hero image — the classroom scene with a blank whiteboard, filling
+            every remaining pixel of the stage edge-to-edge (no side gaps,
+            no scroll). It's stretched to the container's exact size rather
+            than aspect-ratio-boxed, so the overlay's percentage-based
+            positions below still line up with the board's surface — a
+            crop-based fit would shift the visible board around depending
+            on the screen's aspect ratio. */}
+        <div className="relative flex-1 min-h-0 w-full overflow-hidden bg-[#0a0818]">
+          <img
+            src={boardImg}
+            alt="AI Math Teacher at the whiteboard"
+            className="absolute inset-0 w-full h-full transition-transform duration-500 ease-out"
+            style={{ transform: presentMode ? "scale(1.14)" : "scale(1)" }}
+            draggable={false}
+          />
+
+          {/* Heading + equation, positioned directly on the whiteboard. The
+              marker itself now lives inside EquationTokens — it tracks
+              and "writes" each number in real time instead of sitting in
+              one fixed spot (see MarkerPen.jsx / TrackingPen above). */}
+          <div
+            className="absolute flex flex-col items-center justify-center text-center gap-1 sm:gap-1.5 lg:gap-2 transition-transform duration-500 ease-out"
+            style={{
+              left: "15%",
+              top: "9%",
+              width: "50%",
+              height: "42%",
+              transform: presentMode ? "scale(1.35)" : "scale(1)",
+              transformOrigin: "center",
+            }}
+          >
+            <div className="inline-flex items-center gap-1.5">
+              <span className="text-amber-500 text-[9px] sm:text-xs">✦</span>
+              <span className="text-[7px] sm:text-[9px] lg:text-[11px] font-black tracking-[0.18em] text-purple-600 uppercase">
+                {isQuizActive ? "Now You Try" : "Today's Topic"}
+              </span>
+              <span className="text-amber-500 text-[9px] sm:text-xs">✦</span>
+            </div>
+            <h2
+              className="text-xl sm:text-3xl lg:text-4xl xl:text-5xl leading-[1.05]"
+              style={{ fontFamily: "'Permanent Marker', cursive" }}
+            >
+              <span className="text-slate-900">{firstWord}</span>{" "}
+              <span className="bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                {restWords.join(" ")}
+              </span>
+            </h2>
+            {isEquation && <EquationTokens visual={visual} revealStep={revealStep} quiz={isQuizActive} />}
           </div>
 
-          <h2
-            className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-extrabold leading-tight"
-            style={{ fontFamily: "Fredoka, 'Baloo 2', system-ui, sans-serif" }}
+          <div
+            className="absolute bg-white text-slate-900 rounded-2xl rounded-tr-sm px-3 py-2 shadow-xl text-[9px] sm:text-xs font-bold"
+            style={{ top: "4%", right: "2%", maxWidth: "28%" }}
           >
-            <span className="text-white">{firstWord}</span>{" "}
-            <span className="bg-gradient-to-r from-fuchsia-400 to-purple-400 bg-clip-text text-transparent">
-              {restWords.join(" ")}
-            </span>
-          </h2>
+            {speechPrompt(visual, section.heading)}
+          </div>
 
-          {/* Unified glowing card — definition, divider, then the equation */}
-          <div className="relative w-full rounded-3xl border-2 border-fuchsia-400/40 bg-[#1a1440]/70 backdrop-blur-xl shadow-[0_0_45px_-8px_rgba(217,70,239,0.45)] px-5 sm:px-7 lg:px-8 xl:px-9 py-5 sm:py-6 lg:py-6 xl:py-7">
-            <span className="pointer-events-none absolute -top-3 -left-3 text-amber-300 text-lg lg:text-xl">✦</span>
-            <span className="pointer-events-none absolute -top-3 -right-3 text-pink-300 text-lg lg:text-xl">✦</span>
-            <span className="pointer-events-none absolute -bottom-3 -left-3 text-amber-300/80 text-base lg:text-lg">✦</span>
-            <span className="pointer-events-none absolute top-3 right-4 text-lg lg:text-xl">💡</span>
-
-            <p className="text-gray-100 text-sm sm:text-base lg:text-lg xl:text-xl leading-relaxed">
+          {/* Read-along caption — a frosted glass panel floating over the
+              bottom of the photo instead of a separate block stacked below
+              it, so the slide's total height stays pinned to the image's
+              and never forces the stage to scroll. In present mode, Lesson.jsx
+              renders its own floating play/waveform pill (bottom-4 left-4,
+              measured ~114px wide) and Exit pill (bottom-4 right-4, ~75px
+              wide) in this same corner — the padding below reserves exactly
+              that much space so the caption text never runs under them. */}
+          <div
+            className={[
+              "absolute inset-x-2 sm:inset-x-3 bottom-2 sm:bottom-3 max-h-[34%] overflow-y-auto scrollbar-hide rounded-2xl border border-white/15 bg-black/40 backdrop-blur-xl shadow-xl py-2 sm:py-2.5",
+              presentMode ? "pl-[136px] sm:pl-[150px] pr-[92px] sm:pr-[104px]" : "pl-3 sm:pl-4 pr-3 sm:pr-4",
+            ].join(" ")}
+          >
+            <p className="text-white text-[10px] sm:text-xs lg:text-sm leading-snug">
               {section.sentences.map((text, i) => {
                 const globalIdx = sectionStartIdx + i;
                 const isCurrent = globalIdx === currentIdx;
@@ -329,72 +422,33 @@ export default function MathLectureSlide({
                 );
               })}
             </p>
-
-            {isEquation && (
-              <>
-                <div className="my-4 lg:my-6 border-t border-white/10" />
-                <EquationTokens visual={visual} revealStep={revealStep} />
-              </>
-            )}
-          </div>
-
-          {showOptions && (
-            <div className="flex flex-col items-center gap-2 lg:gap-3">
-              <div className="text-[10px] lg:text-sm font-black tracking-widest text-indigo-300 uppercase">
-                Pick the answer
-              </div>
-              <AnswerOptions correctAnswer={correctAnswer} sectionId={section.id} />
-            </div>
-          )}
-
-          {/* Progress row */}
-          <div className="flex items-center gap-2 lg:gap-3 w-full max-w-xs lg:max-w-sm xl:max-w-md">
-            <span className="text-amber-300 text-xs lg:text-base shrink-0">★</span>
-            <span className="text-[10px] lg:text-sm text-gray-400 font-semibold whitespace-nowrap">
-              Lesson {slideNumber}/{totalSlides}
-            </span>
-            <div className="flex-1 h-1.5 lg:h-2.5 rounded-full bg-white/10 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-purple-500 to-fuchsia-400"
-                style={{ width: `${Math.round((slideNumber / totalSlides) * 100)}%` }}
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 lg:gap-4 w-full mt-1 shrink-0">
-            <button
-              onClick={onPrevSlide}
-              disabled={!canPrev}
-              className="flex-1 flex items-center justify-center gap-1.5 text-sm lg:text-base xl:text-lg font-bold text-white bg-violet-600 hover:brightness-110 rounded-full px-4 py-2.5 lg:py-3 xl:py-3.5 shadow-lg transition disabled:opacity-30 disabled:hover:brightness-100"
-            >
-              ← Previous
-            </button>
-            <button
-              onClick={onNextSlide}
-              disabled={!canNext}
-              className="flex-1 flex items-center justify-center gap-1.5 text-sm lg:text-base xl:text-lg font-bold text-white bg-sky-600 hover:brightness-110 rounded-full px-4 py-2.5 lg:py-3 xl:py-3.5 shadow-lg transition disabled:opacity-30 disabled:hover:brightness-100"
-            >
-              Next →
-            </button>
-          </div>
-        </div>
-
-        {/* Right column — illustrated scene. The image is sized to always
-            fill the div's full width (w-full h-auto, centered vertically)
-            so it never shows empty side bars — any leftover space lands
-            above/below instead, and nothing gets cropped either. */}
-        <div className="relative min-w-0 min-h-[220px] rounded-2xl overflow-hidden border border-white/10 shadow-2xl bg-[#0a0818] flex items-center justify-center">
-          <img
-            src={lectureImg}
-            alt="AI Math Teacher"
-            className="w-full h-auto"
-            draggable={false}
-          />
-          <div className="absolute top-4 right-4 max-w-[65%] bg-white text-slate-900 rounded-2xl rounded-tr-sm px-4 py-2.5 shadow-xl text-xs sm:text-sm font-bold">
-            {speechPrompt(visual, section.heading)}
           </div>
         </div>
       </div>
+
+      {/* Previous / Next slide arrows overlaid on the stage — same
+          floating circular icon buttons every other lesson type uses
+          (see LessonSlide), instead of a bottom pill-button row. */}
+      {onPrevSlide && (
+        <button
+          onClick={onPrevSlide}
+          disabled={!canPrev}
+          className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white flex items-center justify-center hover:bg-black/60 hover:scale-110 active:scale-90 transition-all duration-300 z-30 shadow-lg disabled:opacity-25 disabled:hover:scale-100"
+          title="Previous slide"
+        >
+          <ArrowLeftIcon className="w-5 h-5" />
+        </button>
+      )}
+      {onNextSlide && (
+        <button
+          onClick={onNextSlide}
+          disabled={!canNext}
+          className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white flex items-center justify-center hover:bg-black/60 hover:scale-110 active:scale-90 transition-all duration-300 z-30 shadow-lg disabled:opacity-25 disabled:hover:scale-100"
+          title="Next slide"
+        >
+          <ArrowRightIcon className="w-5 h-5" />
+        </button>
+      )}
     </div>
   );
 }
