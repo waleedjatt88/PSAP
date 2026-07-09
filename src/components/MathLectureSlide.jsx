@@ -213,7 +213,7 @@ function TeacherVideo({ speaking = false, playKey, presentMode = false }) {
     <div
       className="absolute z-10 pointer-events-none select-none transition-all duration-500 ease-out"
       style={{
-        left: "50%",
+        left: presentMode ? "56%" : "55%",
         bottom: presentMode ? "1.25%" : "1.75%",
         width: "clamp(190px, 22vw, 320px)",
         height: "min(74%, 550px)",
@@ -438,7 +438,7 @@ export default function MathLectureSlide({
               that much space so the caption text never runs under them. */}
           <div
             className={[
-              "absolute inset-x-2 sm:inset-x-3 bottom-2 sm:bottom-3 max-h-[34%] overflow-y-auto scrollbar-hide rounded-2xl border border-white/15 bg-black/40 backdrop-blur-xl shadow-xl py-2 sm:py-2.5",
+              "absolute z-30 inset-x-2 sm:inset-x-3 bottom-2 sm:bottom-3 max-h-[34%] overflow-y-auto scrollbar-hide rounded-2xl border border-white/15 bg-black/55 backdrop-blur-xl shadow-xl py-2 sm:py-2.5",
               presentMode ? "pl-[136px] sm:pl-[150px] pr-[92px] sm:pr-[104px]" : "pl-3 sm:pl-4 pr-3 sm:pr-4",
             ].join(" ")}
           >
@@ -492,6 +492,8 @@ export default function MathLectureSlide({
     </div>
   );
 }
+
+
 
 
 
